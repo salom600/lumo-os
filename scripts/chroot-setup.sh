@@ -4,8 +4,8 @@ set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
 
 echo "[lumo] installing Lumo packages"
-dpkg -i /root/lumo-debs/*.deb || apt-get -f install -y
-dpkg -i /root/lumo-debs/*.deb   # second pass: resolve inter-package deps
+dpkg -i /root/debs/*.deb || apt-get -f install -y
+dpkg -i /root/debs/*.deb   # second pass: resolve inter-package deps
 
 echo "[lumo] generating locales (en + Arabic for RTL)"
 sed -i 's/^# *en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen
@@ -16,9 +16,9 @@ locale-gen
 echo "[lumo] identity"
 echo "lumo" > /etc/hostname
 cat > /etc/hosts <<'EOF'
-127.0.0.1	localhost
-127.0.1.1	lumo
-::1		localhost ip6-localhost ip6-loopback
+127.0.0.1       localhost
+127.0.1.1       lumo
+::1             localhost ip6-localhost ip6-loopback
 EOF
 cat > /etc/os-release <<'EOF'
 PRETTY_NAME="Lumo OS 1.0 (Aurora)"

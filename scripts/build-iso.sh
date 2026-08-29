@@ -23,10 +23,10 @@ mmdebstrap \
   --components="main contrib non-free non-free-firmware" \
   --setup-hook='mkdir -p "$1"/etc/dpkg/dpkg.cfg.d && printf "path-exclude=/usr/share/doc/*\npath-include=/usr/share/doc/*/copyright\npath-exclude=/usr/share/man/*\npath-exclude=/usr/share/groff/*\n" > "$1"/etc/dpkg/dpkg.cfg.d/01-lumo-slim' \
   --include="$(echo $INCLUDE)" \
-  --customize-hook="copy-in $DEBS /root/lumo-debs" \
-  --customize-hook="copy-in $HERE/scripts/chroot-setup.sh /root/chroot-setup.sh" \
-  --customize-hook="chroot \"\$1\" /bin/bash /root/chroot-setup.sh" \
-  --customize-hook="rm -rf \"\$1\"/root/lumo-debs \"\$1\"/root/chroot-setup.sh" \
+  --customize-hook="copy-in $DEBS /root" \
+  --customize-hook="copy-in $HERE/scripts/chroot-setup.sh /root" \
+  --customize-hook='chroot "$1" /bin/bash /root/chroot-setup.sh' \
+  --customize-hook='rm -rf "$1"/root/debs "$1"/root/chroot-setup.sh' \
   "$SUITE" "$ROOTFS" "$MIRROR"
 
 echo "==> [2/6] Extracting kernel and initrd"
