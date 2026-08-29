@@ -2,10 +2,8 @@ Package: lumo-greeter
 Version: 1.0
 Architecture: all
 Maintainer: Lumo OS Team <salom600@users.noreply.github.com>
-Depends: sddm, qml6-module-qtquick, qml6-module-qtquick-controls,
- qml6-module-qtquick-layouts, qml6-module-qtquick-templates,
- qml6-module-qtquick-window, qml6-module-qtqml-workerscript, fonts-inter,
- lumo-theme
+Depends: sddm, fonts-inter, lumo-theme
+# (sddm pulls the complete Qt6 QML module set its greeters need)
 Description: Lumo OS greeter (SDDM theme)
  Custom SDDM QML login screen for Lumo OS: aurora wallpaper, centered
  clock, dark glass login card with user picker, password field, session

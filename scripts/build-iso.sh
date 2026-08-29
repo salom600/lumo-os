@@ -47,8 +47,7 @@ if [ -f "$HERE/packages/lumo-theme/usr/share/lumo/wallpapers/lumo-aurora-dark.pn
 fi
 
 echo "==> [5/6] Generating hybrid ISO"
-grub-mkrescue -o "$BUILD/$ISO_NAME" "$ISOROOT" \
-  -- -volid "LUMO_OS_${VERSION}" -joliet on -compliance no_emulation_no_img
+grub-mkrescue -o "$BUILD/$ISO_NAME" "$ISOROOT" -- -volid "LUMO_OS_1_0_AMD64" -joliet on
 
 echo "==> [6/6] Reports"
 sha256sum "$BUILD/$ISO_NAME" > "$BUILD/$ISO_NAME.sha256"
