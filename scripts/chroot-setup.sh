@@ -68,6 +68,7 @@ rm -f /etc/machine-id /var/lib/dbus/machine-id
 touch /etc/machine-id
 
 echo "[lumo] package manifest"
+mkdir -p /var/lib/lumo
 dpkg-query -W -f='${Package}\t${Version}\n' | sort > /var/lib/lumo/package-manifest.txt
 
 echo "[lumo] cleaning apt caches"
