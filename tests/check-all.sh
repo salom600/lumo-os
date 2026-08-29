@@ -71,6 +71,7 @@ for c in packages/*/debian/control; do
   grep -q '^Package: ' "$c" || fail "missing Package: in $c"
   grep -q '^Description: ' "$c" || fail "missing Description: in $c"
   grep -q '^Version: ' "$c" || fail "missing Version: in $c"
+  if grep -qE '^\s*#' "$c"; then fail "comments not allowed in $c"; fi
 done
 
 echo "== repo hygiene: no placeholder junk patterns =="
