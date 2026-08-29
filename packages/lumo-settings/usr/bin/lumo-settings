@@ -1,0 +1,9 @@
+#!/usr/bin/python3
+"""Lumo Settings launcher wrapper."""
+import sys
+
+sys.path.insert(0, "/usr/lib/python3/dist-packages")
+from lumo.settings.app import SettingsApp
+
+if __name__ == "__main__":
+    SettingsApp().run(sys.argv)

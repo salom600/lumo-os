@@ -1,0 +1,11 @@
+#!/bin/sh
+set -e
+
+if [ "$1" = "configure" ]; then
+    # compile GNOME settings overrides (dark mode, fonts, icons, wallpaper)
+    glib-compile-schemas /usr/share/glib-2.0/schemas/ || true
+    # refresh application defaults
+    update-desktop-database /usr/share/applications/ 2>/dev/null || true
+fi
+
+#DEBHELPER#

@@ -1,0 +1,17 @@
+Package: lumo-settings
+Version: 1.0
+Architecture: all
+Maintainer: Lumo OS Team <salom600@users.noreply.github.com>
+Depends: python3, python3-gi, gir1.2-gtk-4.0, lumo-theme, network-manager,
+ pulseaudio-utils, brightnessctl
+Description: Lumo OS settings application
+ Real settings application for Lumo OS with 18 modules: Wi-Fi, Bluetooth,
+ Network, Background, Appearance (dark/light + accent), Notifications,
+ Sound, Power, Displays, Mouse & Touchpad, Keyboard, Printers, Region &
+ Language (Arabic/RTL ready), Accessibility, Users, Date & Time, Default
+ Applications and About. Each module drives the actual system backend
+ (nmcli, bluetoothctl, pactl, wlr-randr, localectl, timedatectl,
+ AccountsService, labwc libinput configuration).
+Section: x11
+Priority: optional
+Homepage: https://github.com/salom600/lumo-os

@@ -1,0 +1,6 @@
+/* Lumo Bar entry point: pulls in the shared Lumo shell styling */
+@import url("/usr/share/lumo/theme/lumo-bar.css");
+
+* {
+  font-family: "Inter", "Noto Sans", "Noto Sans Arabic", "Font Awesome 6 Free", "Font Awesome 5 Free", sans-serif;
+}

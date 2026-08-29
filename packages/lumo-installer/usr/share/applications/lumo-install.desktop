@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Install Lumo OS
+GenericName=System Installer
+Comment=Install Lumo OS to your disk
+Exec=pkexec /usr/bin/calamares
+Icon=lumo-logo
+Terminal=false
+Categories=System;Installer;
+StartupNotify=true

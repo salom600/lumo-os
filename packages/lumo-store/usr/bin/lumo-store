@@ -1,0 +1,9 @@
+#!/usr/bin/python3
+"""Lumo Store launcher wrapper."""
+import sys
+
+sys.path.insert(0, "/usr/lib/python3/dist-packages")
+from lumo.store.app import StoreApp
+
+if __name__ == "__main__":
+    StoreApp().run(sys.argv)

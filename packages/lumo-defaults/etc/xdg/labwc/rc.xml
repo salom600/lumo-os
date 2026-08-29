@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<openbox_config xmlns="http://openbox.org/3.4/xaml">
+
+  <core>
+    <decoration>yes</decoration>
+    <gap>0</gap>
+    <adaptiveSync>no</adaptiveSync>
+    <allowTearing>yes</allowTearing>
+    <reuseOutputMode>no</reuseOutputMode>
+  </core>
+
+  <theme>
+    <name>Lumo</name>
+    <iconSnapping>yes</iconSnapping>
+  </theme>
+
+  <placement>
+    <policy>center</policy>
+  </placement>
+
+  <resize>
+    <popupShow>Never</popupShow>
+  </resize>
+
+  <focus>
+    <followMouse>no</followMouse>
+    <raiseOnFocus>yes</raiseOnFocus>
+  </focus>
+
+  <libinput>
+    <device category="default">
+      <naturalScroll>no</naturalScroll>
+      <leftHanded>no</leftHanded>
+      <pointerSpeed>0</pointerSpeed>
+      <emulateMiddleClick>yes</emulateMiddleClick>
+    </device>
+    <device category="touchpad">
+      <naturalScroll>yes</naturalScroll>
+      <tap>yes</tap>
+      <tapButtonMap>lrm</tapButtonMap>
+      <accelProfile>adaptive</accelProfile>
+      <scrollMethod>twoFinger</scrollMethod>
+      <disableWhileTyping>yes</disableWhileTyping>
+      <clickMethod>buttonAreas</clickMethod>
+    </device>
+  </libinput>
+
+  <keyboard>
+    <!-- Applications -->
+    <keybind key="Super_L"><action name="Execute" command="lumo-launcher" /></keybind>
+    <keybind key="W-d"><action name="Execute" command="lumo-launcher" /></keybind>
+    <keybind key="W-Return"><action name="Execute" command="foot" /></keybind>
+    <keybind key="W-e"><action name="Execute" command="nautilus" /></keybind>
+    <keybind key="W-b"><action name="Execute" command="firefox-esr" /></keybind>
+    <keybind key="W-s"><action name="Execute" command="lumo-settings" /></keybind>
+    <keybind key="W-i"><action name="Execute" command="lumo-qs" /></keybind>
+    <keybind key="W-c"><action name="Execute" command="lumo-calendar" /></keybind>
+    <keybind key="W-x"><action name="Execute" command="lumo-power" /></keybind>
+    <keybind key="W-m"><action name="Execute" command="lumo-store" /></keybind>
+    <keybind key="W-l"><action name="Execute" command="/usr/libexec/lumo/lumo-lock" /></keybind>
+
+    <!-- Screenshots -->
+    <keybind key="Print"><action name="Execute" command="lumo-screenshot full" /></keybind>
+    <keybind key="S-Print"><action name="Execute" command="lumo-screenshot region" /></keybind>
+
+    <!-- Window management -->
+    <keybind key="W-Up"><action name="ToggleMaximize" /></keybind>
+    <keybind key="W-Down"><action name="ToggleDecorations" /></keybind>
+    <keybind key="W-Left"><action name="SnapToEdge" direction="left" /></keybind>
+    <keybind key="W-Right"><action name="SnapToEdge" direction="right" /></keybind>
+    <keybind key="W-f"><action name="ToggleFullscreen" /></keybind>
+    <keybind key="W-Tab"><action name="NextWindow" /></keybind>
+    <keybind key="A-Tab"><action name="NextWindow" /></keybind>
+    <keybind key="A-S-Tab"><action name="PreviousWindow" /></keybind>
+    <keybind key="W-q"><action name="Close" /></keybind>
+    <keybind key="A-F4"><action name="Close" /></keybind>
+    <keybind key="W-Escape"><action name="Exit" /></keybind>
+
+    <!-- Media and brightness keys -->
+    <keybind key="XF86AudioRaiseVolume"><action name="Execute" command="pactl set-sink-volume @DEFAULT_SINK@ +5%" /></keybind>
+    <keybind key="XF86AudioLowerVolume"><action name="Execute" command="pactl set-sink-volume @DEFAULT_SINK@ -5%" /></keybind>
+    <keybind key="XF86AudioMute"><action name="Execute" command="pactl set-sink-mute @DEFAULT_SINK@ toggle" /></keybind>
+    <keybind key="XF86AudioMicMute"><action name="Execute" command="pactl set-source-mute @DEFAULT_SOURCE@ toggle" /></keybind>
+    <keybind key="XF86AudioPlay"><action name="Execute" command="playerctl play-pause" /></keybind>
+    <keybind key="XF86AudioNext"><action name="Execute" command="playerctl next" /></keybind>
+    <keybind key="XF86AudioPrev"><action name="Execute" command="playerctl previous" /></keybind>
+    <keybind key="XF86MonBrightnessUp"><action name="Execute" command="brightnessctl s +5%" /></keybind>
+    <keybind key="XF86MonBrightnessDown"><action name="Execute" command="brightnessctl s 5%-" /></keybind>
+  </keyboard>
+
+  <mouse>
+    <default />
+    <context name="Root">
+      <mousebind button="Right" action="Press">
+        <action name="ShowMenu"><menu>root-menu</menu></action>
+      </mousebind>
+    </context>
+  </mouse>
+
+  <windowRules>
+    <!-- Nothing forced: Adw/GTK apps ship CSD; SSD windows get the Lumo
+         frameless theme (titlebar.height 0 + corner_radius). -->
+  </windowRules>
+
+</openbox_config>

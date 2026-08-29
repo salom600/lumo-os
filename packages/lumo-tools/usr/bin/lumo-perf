@@ -1,0 +1,48 @@
+#!/bin/sh
+# lumo-perf - Game Mode CPU governor switcher (run via pkexec as root)
+# Usage: lumo-perf on|off|toggle|status
+set -eu
+CPU_GOV_DIR=/sys/devices/system/cpu
+
+pick_powersave() {
+    # best available power-saving governor
+    for g in schedutil ondemand powersave conservative; do
+        if [ -r "$CPU_GOV_DIR/cpu0/cpufreq/scaling_available_governors" ] && \
+           grep -qw "$g" "$CPU_GOV_DIR/cpu0/cpufreq/scaling_available_governors" 2>/dev/null; then
+            echo "$g"; return
+        fi
+    done
+    echo ""
+}
+
+is_on() {
+    [ -r "$CPU_GOV_DIR/cpu0/cpufreq/scaling_governor" ] && \
+        [ "$(cat "$CPU_GOV_DIR/cpu0/cpufreq/scaling_governor")" = "performance" ]
+}
+
+case "${1:-status}" in
+    status)
+        if is_on; then echo "on"; else echo "off"; fi
+        ;;
+    on)
+        for gov in "$CPU_GOV_DIR"/cpu*/cpufreq/scaling_governor; do
+            [ -w "$gov" ] && echo performance > "$gov" || true
+        done
+        echo "on"
+        ;;
+    off)
+        SAVE="$(pick_powersave)"
+        [ -n "$SAVE" ] || SAVE=powersave
+        for gov in "$CPU_GOV_DIR"/cpu*/cpufreq/scaling_governor; do
+            [ -w "$gov" ] && echo "$SAVE" > "$gov" || true
+        done
+        echo "off"
+        ;;
+    toggle)
+        if is_on; then exec "$0" off; else exec "$0" on; fi
+        ;;
+    *)
+        echo "usage: $0 on|off|toggle|status" >&2
+        exit 2
+        ;;
+esac

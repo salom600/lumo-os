@@ -1,0 +1,15 @@
+[Unit]
+Description=Lumo OS live session bootstrap
+Documentation=https://github.com/salom600/lumo-os
+ConditionPathExists=/run/live/medium
+Before=display-manager.service
+After=systemd-user-sessions.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/lumo-live-setup
+RemainAfterExit=yes
+
+[Install]
+WantedBy=graphical.target

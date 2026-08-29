@@ -1,0 +1,24 @@
+#!/bin/sh
+# Lumo screenshot helper: lumo-screenshot full|region|window(list via slurp)
+set -e
+MODE="${1:-full}"
+DIR="$HOME/Pictures/Screenshots"
+mkdir -p "$DIR"
+FILE="$DIR/lumo-$(date +%Y%m%d-%H%M%S).png"
+
+case "$MODE" in
+  full)
+    grim "$FILE"
+    ;;
+  region)
+    GEOM="$(slurp)" || exit 0
+    [ -n "$GEOM" ] || exit 0
+    grim -g "$GEOM" "$FILE"
+    ;;
+  *)
+    grim "$FILE"
+    ;;
+esac
+
+wl-copy < "$FILE" 2>/dev/null || true
+notify-send -i "$FILE" "Screenshot saved" "$(basename "$FILE") - copied to clipboard" 2>/dev/null || true

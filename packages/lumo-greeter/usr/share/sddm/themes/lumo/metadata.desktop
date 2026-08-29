@@ -1,0 +1,14 @@
+[SddmGreeterTheme]
+Name=Lumo
+Description=Lumo OS greeter - dark glass, aurora background
+Author=Lumo OS Team
+License=GPL-3.0-or-later
+Type=sddm-theme
+Version=1.0
+Website=https://github.com/salom600/lumo-os
+MainScript=Main.qml
+ConfigFile=theme.conf
+TranslationsDirectory=translations
+Email=salom600@users.noreply.github.com
+Theme-Id=lumo
+Theme-API=2.0

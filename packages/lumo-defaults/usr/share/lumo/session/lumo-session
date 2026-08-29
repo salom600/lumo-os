@@ -1,0 +1,17 @@
+#!/bin/sh
+# Lumo Shell session launcher (referenced by /usr/share/wayland-sessions/lumo.desktop)
+export XDG_SESSION_TYPE=wayland
+export XDG_SESSION_DESKTOP=lumo
+export XDG_CURRENT_DESKTOP=lumo:wlroots
+export XDG_DESKTOP_PORTAL_DIR=/usr/share/xdg-desktop-portal/portals
+
+# Import the system keyboard configuration (XKB) so layouts incl. Arabic work
+if [ -r /etc/default/keyboard ]; then
+    . /etc/default/keyboard 2>/dev/null || true
+    export XKB_DEFAULT_LAYOUT="${XKBLAYOUT:-us}"
+    export XKB_DEFAULT_MODEL="${XKBMODEL:-pc105}"
+    export XKB_DEFAULT_VARIANT="${XKBVARIANT:-}"
+    export XKB_DEFAULT_OPTIONS="${XKBOPTIONS:-}"
+fi
+
+exec labwc

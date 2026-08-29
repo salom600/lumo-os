@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Lumo Quick Settings
+Comment=Quick settings control center
+Exec=lumo-qs
+Icon=preferences-system-symbolic
+NoDisplay=true
+Terminal=false
+Categories=Utility;

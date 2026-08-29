@@ -1,0 +1,14 @@
+# Firmware for wide hardware coverage (non-free-firmware)
+firmware-linux
+firmware-linux-nonfree
+firmware-misc-nonfree
+firmware-amd-graphics
+firmware-intel-sound
+firmware-iwlwifi
+firmware-realtek
+firmware-atheros
+firmware-brcm80211
+firmware-libertas
+firmware-sof-signed
+intel-microcode
+amd64-microcode

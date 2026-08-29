@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Settings
+GenericName=Lumo Settings
+Comment=Configure Wi-Fi, Bluetooth, displays, sound, users and more
+Exec=lumo-settings
+Icon=lumo-settings
+Terminal=false
+Categories=Settings;X-Lumo;
+Keywords=settings;preferences;configuration;lumo;
+StartupNotify=true

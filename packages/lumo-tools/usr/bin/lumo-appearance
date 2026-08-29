@@ -1,0 +1,53 @@
+#!/bin/sh
+# lumo-appearance - switch Lumo OS dark/light mode
+# Usage: lumo-appearance dark|light
+#  - writes ~/.config/lumo/appearance.json (Lumo apps + wallpaper daemon)
+#  - sets gsettings color-scheme + gtk-theme (Adwaita apps)
+#  - rewrites the GTK2/3/4 ini files for legacy apps
+#  - restarts the wallpaper service
+set -u
+TARGET="${1:-dark}"
+[ "$TARGET" = light ] || TARGET=dark
+
+CFG="$HOME/.config/lumo"
+mkdir -p "$CFG"
+
+# 1) Lumo state file
+if [ "$TARGET" = dark ]; then
+    printf '{\n  "dark": true,\n  "accent": "%s"\n}\n' "$(grep -o '"accent"[^,}]*' "$CFG/appearance.json" 2>/dev/null | cut -d'"' -f4)" > "$CFG/appearance.json"
+else
+    printf '{\n  "dark": false,\n  "accent": "%s"\n}\n' "$(grep -o '"accent"[^,}]*' "$CFG/appearance.json" 2>/dev/null | cut -d'"' -f4)" > "$CFG/appearance.json"
+fi
+
+# 2) gsettings (Adwaita/GNOME stack)
+if command -v gsettings >/dev/null 2>&1; then
+    if [ "$TARGET" = dark ]; then
+        gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark' || true
+        gsettings set org.gnome.desktop.interface gtk-theme 'Adwaita-dark' || true
+    else
+        gsettings set org.gnome.desktop.interface color-scheme 'default' || true
+        gsettings set org.gnome.desktop.interface gtk-theme 'Adwaita' || true
+    fi
+fi
+
+# 3) legacy ini files
+set_ini() {
+    f="$1"
+    [ -f "$f" ] || return
+    if [ "$TARGET" = dark ]; then
+        sed -i 's/^gtk-theme-name=.*/gtk-theme-name=Adwaita-dark/' "$f"
+        sed -i 's/^gtk-application-prefer-dark-theme=.*/gtk-application-prefer-dark-theme=true/' "$f"
+    else
+        sed -i 's/^gtk-theme-name=.*/gtk-theme-name=Adwaita/' "$f"
+        sed -i 's/^gtk-application-prefer-dark-theme=.*/gtk-application-prefer-dark-theme=false/' "$f"
+    fi
+}
+set_ini "$HOME/.config/gtk-3.0/settings.ini"
+set_ini "$HOME/.config/gtk-4.0/settings.ini"
+
+# 4) wallpaper follows the mode
+systemctl --user restart lumo-wallpaper.service 2>/dev/null || true
+
+# 5) notify the shell
+notify-send "Appearance" "Switched to $TARGET mode" 2>/dev/null || true
+exit 0

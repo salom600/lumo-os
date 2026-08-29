@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<openbox_menu xmlns="http://openbox.org/3.4/xaml">
+
+  <menu id="root-menu">
+    <item label="Applications">
+      <action name="Execute" command="lumo-launcher" />
+    </item>
+    <item label="Terminal">
+      <action name="Execute" command="foot" />
+    </item>
+    <item label="Files">
+      <action name="Execute" command="nautilus" />
+    </item>
+    <item label="Firefox">
+      <action name="Execute" command="firefox-esr" />
+    </item>
+    <item label="Lumo Store">
+      <action name="Execute" command="lumo-store" />
+    </item>
+    <item label="Settings">
+      <action name="Execute" command="lumo-settings" />
+    </item>
+    <item label="Quick Settings">
+      <action name="Execute" command="lumo-qs" />
+    </item>
+    <separator />
+    <item label="Screenshot">
+      <action name="Execute" command="lumo-screenshot region" />
+    </item>
+    <item label="Lock">
+      <action name="Execute" command="/usr/libexec/lumo/lumo-lock" />
+    </item>
+    <item label="Restart">
+      <action name="Execute" command="systemctl reboot" />
+    </item>
+    <item label="Shut Down">
+      <action name="Execute" command="systemctl poweroff" />
+    </item>
+  </menu>
+
+</openbox_menu>

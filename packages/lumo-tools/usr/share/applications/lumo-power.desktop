@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Lumo Power
+Comment=Session power dialog
+Exec=lumo-power
+Icon=system-shutdown-symbolic
+NoDisplay=true
+Terminal=false
+Categories=Utility;

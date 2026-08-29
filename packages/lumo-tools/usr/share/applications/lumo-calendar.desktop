@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Lumo Calendar
+Comment=Clock and calendar popup
+Exec=lumo-calendar
+Icon=office-calendar-symbolic
+NoDisplay=true
+Terminal=false
+Categories=Utility;

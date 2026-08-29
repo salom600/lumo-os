@@ -1,0 +1,19 @@
+# Lumo labwc window theme - frameless dark glass with rounded corners
+border.width: 1
+border.color: #232436
+padding.height: 0
+titlebar.height: 0
+corner_radius: 12
+window.active.border.color: #2b2d44
+window.inactive.border.color: #1b1c2c
+window.active.title.separator.color: #232436
+window.inactive.title.separator.color: #1b1c2c
+osd.bg.color: #16182afF
+osd.border.color: #2b2d44
+osd.label.text.color: #f2f1f0
+osd.window-switcher.width: 600
+osd.window-switcher.padding: 10
+osd.window-switcher.item.padding.x: 14
+osd.window-switcher.item.padding.y: 10
+osd.window-switcher.item.active.border.width: 2
+osd.window-switcher.item.active.border.color: #3584e4

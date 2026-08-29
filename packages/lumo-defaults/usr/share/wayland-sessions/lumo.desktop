@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Lumo Shell
+Comment=Lumo OS desktop session (Wayland)
+Exec=/usr/share/lumo/session/lumo-session
+DesktopNames=Lumo
+Keywords=session;desktop;lumo;

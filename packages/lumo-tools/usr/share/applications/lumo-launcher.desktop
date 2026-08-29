@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Lumo Launcher
+Comment=Search and launch applications
+Exec=lumo-launcher
+Icon=lumo-logo
+NoDisplay=true
+Terminal=false
+Categories=Utility;

@@ -1,0 +1,45 @@
+#!/bin/sh
+# lumo-live-setup - prepares the live session (runs once, as root).
+# Enabled via systemd unit with ConditionPathExists=/run/live/medium so it
+# is a no-op on installed systems.
+set -eu
+
+[ -d /run/live/medium ] || exit 0
+echo "[lumo-live] configuring live session"
+
+# 1) live user (passwordless sudo - it is a live session)
+if ! id lumo >/dev/null 2>&1; then
+    useradd -m -c "Lumo Live User" -s /bin/bash -G \
+        sudo,audio,video,input,netdev,users,cdrom,floppy,lp,lpadmin,scanner,bluetooth \
+        lumo || true
+fi
+cat > /etc/sudoers.d/90-lumo-live <<'EOF'
+lumo ALL=(ALL) NOPASSWD: ALL
+EOF
+chmod 440 /etc/sudoers.d/90-lumo-live
+
+# 2) SDDM autologin into the Lumo session
+mkdir -p /etc/sddm.conf.d
+cat > /etc/sddm.conf.d/zz-live-autologin.conf <<'EOF'
+[Autologin]
+User=lumo
+Session=lumo
+Relogin=true
+EOF
+
+# 3) automated test mode: expose SSH with an ephemeral key passed on the
+#    kernel command line (never stored in the image).
+if grep -q 'lumo.test=1' /proc/cmdline; then
+    echo "[lumo-live] test mode requested"
+    PUBKEY="$(sed -n 's/.*lumo.pubkey=\([^ ]*\).*/\1/p' /proc/cmdline | base64 -d 2>/dev/null || true)"
+    if [ -n "${PUBKEY:-}" ]; then
+        install -d -m 700 -o lumo -g lumo /home/lumo/.ssh
+        printf '%s\n' "$PUBKEY" > /home/lumo/.ssh/authorized_keys
+        chown lumo:lumo /home/lumo/.ssh/authorized_keys
+        chmod 600 /home/lumo/.ssh/authorized_keys
+        echo "[lumo-live] ephemeral SSH key installed"
+    fi
+    systemctl enable --now ssh >/dev/null 2>&1 || systemctl restart ssh || true
+fi
+
+echo "[lumo-live] ready"

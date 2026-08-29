@@ -1,0 +1,10 @@
+build/
+*.iso
+*.squashfs
+*.log
+*.deb.tmp
+__pycache__/
+*.pyc
+.venv/
+docs/img/design-reference.png
+worklog.md

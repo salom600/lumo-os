@@ -1,0 +1,13 @@
+Package: lumo-theme
+Version: 1.0
+Architecture: all
+Maintainer: Lumo OS Team <salom600@users.noreply.github.com>
+Depends: papirus-icon-theme, fonts-inter, fonts-noto-core, fonts-noto-ui-core, fonts-noto-color-emoji
+Recommends: lumo-defaults
+Description: Lumo OS theme, wallpapers and branding
+ Design system for Lumo OS: aurora wallpapers, GTK CSS theme, Lumo Bar CSS,
+ palette, logo assets and the shared Python style helper used by all Lumo
+ applications. Part of Lumo OS, a Debian 13 based ultra-light distribution.
+Section: x11
+Priority: optional
+Homepage: https://github.com/salom600/lumo-os

@@ -1,0 +1,144 @@
+name: Build & Test Lumo OS
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      skip_test:
+        description: "Skip the QEMU boot test"
+        type: boolean
+        default: false
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+env:
+  DEBIAN_FRONTEND: noninteractive
+
+jobs:
+  lint:
+    name: Lint (fast checks)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Static validation
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq shellcheck python3-flake8 >/dev/null
+          bash tests/check-all.sh
+
+  build:
+    name: Build ISO
+    needs: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq mmdebstrap squashfs-tools xorriso \
+            grub-pc-bin grub-efi-amd64-bin mtools dosfstools e2fsprogs \
+            arch-test debootstrap >/dev/null
+
+      - name: Build Lumo debs
+        run: ./scripts/build-debs.sh
+
+      - name: Build ISO (mmdebstrap -> squashfs -> grub-mkrescue)
+        run: sudo -E ./scripts/build-iso.sh 2>&1 | tee build/build.log
+
+      - name: Show build report
+        run: cat build/build-report.txt
+
+      - name: Upload ISO artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lumo-os-iso
+          path: |
+            build/*.iso
+            build/*.sha256
+            build/package-list.txt
+            build/build-report.txt
+            build/build.log
+          retention-days: 30
+          if-no-files-found: error
+          compression-level: 0
+
+  test:
+    name: QEMU boot test + screenshots
+    needs: build
+    if: ${{ !inputs.skip_test }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install test dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq qemu-system-x86 openssh-client \
+            netcat-openbsd python3-pil >/dev/null
+
+      - name: Download ISO artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: lumo-os-iso
+          path: build
+
+      - name: Boot ISO in QEMU and validate
+        run: ./scripts/tests/qemu-smoke.sh build/*.iso 2>&1 | tee build/test.log
+
+      - name: Upload test evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: lumo-os-test-evidence
+          path: |
+            build/screenshots/
+            build/validation-report.md
+            build/serial.log
+            build/test.log
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Append validation summary to job
+        run: |
+          if [ -f build/validation-report.md ]; then
+            cat build/validation-report.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  release:
+    name: Publish release with ISO
+    needs: [ build, test ]
+    if: ${{ always() && needs.build.result == 'success' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: lumo-os-iso
+          path: build
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ISO=$(ls build/*.iso | head -n1)
+          TAG="v1.0-alpha.${{ github.run_number }}"
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" \
+            --title "Lumo OS $TAG (Aurora)" \
+            --notes "Automated build from commit ${{ github.sha }}.
+
+          - Live ISO (BIOS + UEFI), safe graphics + failsafe entries
+          - Calamares installer on the live medium ('Install Lumo OS')
+          - See artifacts 'lumo-os-test-evidence' for screenshots and the
+            RAM/CPU validation report." \
+            --draft false --prerelease || true
+          gh release upload "$TAG" "$ISO" "$ISO.sha256" build/package-list.txt \
+            --repo "$GITHUB_REPOSITORY" --clobber

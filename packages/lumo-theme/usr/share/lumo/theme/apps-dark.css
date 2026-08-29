@@ -1,0 +1,212 @@
+/* Lumo OS application theme - DARK (default)
+ * Shared by Lumo Store, Lumo Settings, Lumo Launcher, Quick Settings,
+ * Calendar, Power and Welcome. Glassy dark surfaces, blue accent. */
+
+@define-color accent #3584e4;
+@define-color accent_strong #1c71d8;
+@define-color window_bg rgba(21, 23, 34, 0.94);
+@define-color panel_bg rgba(17, 19, 29, 0.88);
+@define-color card_bg rgba(255, 255, 255, 0.055);
+@define-color card_bg_hover rgba(255, 255, 255, 0.095);
+@define-color fg #f2f1f0;
+@define-color fg_dim rgba(242, 241, 240, 0.62);
+@define-color border_rgba rgba(255, 255, 255, 0.09);
+@define-color danger #e01b24;
+@define-color success #2ec27e;
+
+* {
+  font-family: "Inter", "Noto Sans", "Noto Sans Arabic", sans-serif;
+  outline-width: 0;
+}
+
+.lumo-root,
+window.lumo-root {
+  background: @window_bg;
+  color: @fg;
+  border-radius: 16px;
+}
+
+.lumo-overlay {
+  background: rgba(6, 7, 12, 0.55);
+}
+
+.lumo-glass {
+  background: @window_bg;
+  border: 1px solid @border_rgba;
+  border-radius: 18px;
+}
+
+.lumo-title {
+  font-size: 21px;
+  font-weight: 700;
+  color: @fg;
+}
+
+.lumo-heading {
+  font-size: 14px;
+  font-weight: 700;
+  color: @fg;
+}
+
+.lumo-subtitle,
+.lumo-dim {
+  font-size: 12px;
+  color: @fg_dim;
+}
+
+.lumo-card {
+  background: @card_bg;
+  border: 1px solid @border_rgba;
+  border-radius: 14px;
+  padding: 14px;
+}
+
+.lumo-card:hover { background: @card_bg_hover; }
+
+.lumo-sidebar {
+  background: transparent;
+  padding: 8px 6px;
+}
+
+.lumo-sidebar row {
+  border-radius: 12px;
+  padding: 9px 12px;
+  margin: 1px 4px;
+  color: @fg_dim;
+}
+
+.lumo-sidebar row:hover { background: rgba(255, 255, 255, 0.06); }
+
+.lumo-sidebar row:selected,
+.lumo-sidebar row:selected label {
+  background: rgba(53, 132, 228, 0.28);
+  color: #ffffff;
+}
+
+.lumo-entry {
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid @border_rgba;
+  border-radius: 12px;
+  padding: 9px 14px;
+  color: @fg;
+}
+
+.lumo-entry:focus {
+  border-color: rgba(53, 132, 228, 0.75);
+  background: rgba(255, 255, 255, 0.09);
+}
+
+button.lumo-btn {
+  background: @accent;
+  color: #ffffff;
+  border-radius: 12px;
+  padding: 9px 20px;
+  font-weight: 600;
+}
+
+button.lumo-btn:hover { background: @accent_strong; }
+button.lumo-btn:active { background: #1a5fb4; }
+button.lumo-btn:disabled { opacity: 0.45; }
+
+button.lumo-btn-flat {
+  background: transparent;
+  color: @fg;
+  border-radius: 12px;
+  padding: 9px 16px;
+}
+
+button.lumo-btn-flat:hover { background: rgba(255, 255, 255, 0.08); }
+
+button.lumo-btn-danger {
+  background: @danger;
+  color: #ffffff;
+  border-radius: 12px;
+  padding: 9px 20px;
+  font-weight: 600;
+}
+
+button.lumo-btn-danger:hover { opacity: 0.9; }
+
+button.lumo-round {
+  background: @card_bg;
+  border-radius: 999px;
+  padding: 8px;
+}
+
+button.lumo-round:hover { background: @card_bg_hover; }
+
+.lumo-row {
+  background: @card_bg;
+  border-radius: 14px;
+  padding: 12px 16px;
+  margin-bottom: 8px;
+}
+
+.lumo-row:hover { background: @card_bg_hover; }
+
+.lumo-accent-label { color: @accent; font-weight: 600; }
+.lumo-danger-label { color: @danger; }
+.lumo-success-label { color: @success; }
+
+/* Quick Settings tiles */
+button.lumo-tile {
+  background: @card_bg;
+  border: 1px solid @border_rgba;
+  border-radius: 14px;
+  padding: 12px 14px;
+}
+button.lumo-tile:hover { background: @card_bg_hover; }
+button.lumo-tile.lumo-tile-on {
+  background: rgba(53, 132, 228, 0.30);
+  border-color: rgba(53, 132, 228, 0.65);
+}
+
+.lumo-divider {
+  background: @border_rgba;
+  min-height: 1px;
+  margin: 10px 0;
+}
+
+/* App grid / lists (launcher, store) */
+.lumo-appcell {
+  border-radius: 16px;
+  padding: 12px;
+}
+
+.lumo-appcell:hover { background: rgba(255, 255, 255, 0.07); }
+.lumo-appcell label.title { font-weight: 600; color: @fg; font-size: 13px; }
+.lumo-appcell label.desc { color: @fg_dim; font-size: 11px; }
+
+.lumo-badge {
+  background: rgba(53, 132, 228, 0.25);
+  color: #9ccaff;
+  border-radius: 8px;
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+/* Scrollbars: slim + unobtrusive */
+scrollbar {
+  background: transparent;
+}
+scrollbar slider {
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 6px;
+  min-width: 6px;
+  min-height: 6px;
+}
+scrollbar slider:hover { background: rgba(255, 255, 255, 0.30); }
+
+/* Progress */
+progressbar trough {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+}
+progressbar progress {
+  background: @accent;
+  border-radius: 6px;
+}
+
+/* Spinners accent */
+spinner { color: @accent; }

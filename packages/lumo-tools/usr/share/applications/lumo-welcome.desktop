@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Welcome to Lumo OS
+Comment=First-run welcome and installer shortcut
+Exec=lumo-welcome
+Icon=lumo-logo
+Terminal=false
+Categories=System;Utility;
+StartupNotify=true

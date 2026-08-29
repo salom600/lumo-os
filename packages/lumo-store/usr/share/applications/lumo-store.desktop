@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Lumo Store
+GenericName=Software Center
+Comment=Install, remove and update applications
+Exec=lumo-store
+Icon=lumo-store
+Terminal=false
+Categories=System;PackageManager;
+Keywords=software;store;install;update;app;package;
+StartupNotify=true
+MimeType=x-scheme-handler apt;

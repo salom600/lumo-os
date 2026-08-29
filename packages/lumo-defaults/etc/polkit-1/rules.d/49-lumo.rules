@@ -1,0 +1,29 @@
+// Lumo OS polkit rules: smooth-but-safe privilege handling.
+// Narrow allowances for standard desktop settings actions and the
+// Game Mode toggle; everything else keeps Debian defaults.
+polkit.addRule(function(action, subject) {
+    if (!subject.local || !subject.active) {
+        return polkit.Result.NOT_HANDLED;
+    }
+
+    // Settings app: locale, keyboard, hostname, clock for admin users
+    var settingsActions = [
+        "org.freedesktop.locale1.set-locale",
+        "org.freedesktop.locale1.set-keyboard",
+        "org.freedesktop.hostname1.set-hostname",
+        "org.freedesktop.hostname1.set-static-hostname",
+        "org.freedesktop.timedate1.set-timezone",
+        "org.freedesktop.timedate1.set-time",
+        "org.freedesktop.timedate1.set-ntp"
+    ];
+    if (subject.isInGroup("sudo") && settingsActions.indexOf(action.id) >= 0) {
+        return polkit.Result.YES;
+    }
+
+    // Game Mode: allow the active admin user to switch CPU governor
+    if (action.id == "com.lumo.perf.toggle" && subject.isInGroup("sudo")) {
+        return polkit.Result.YES;
+    }
+
+    return polkit.Result.NOT_HANDLED;
+});

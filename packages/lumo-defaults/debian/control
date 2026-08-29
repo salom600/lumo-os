@@ -1,0 +1,19 @@
+Package: lumo-defaults
+Version: 1.0
+Architecture: all
+Maintainer: Lumo OS Team <salom600@users.noreply.github.com>
+Depends: labwc, waybar, sddm, swaybg, swaylock, swayidle, mako-notifier, foot,
+ nautilus, firefox-esr, gnome-text-editor, loupe, file-roller, mpv,
+ network-manager, pipewire, pipewire-pulse, wireplumber, bluez,
+ mate-polkit, xdg-desktop-portal-wlr, xdg-desktop-portal-gtk, xdg-user-dirs,
+ gvfs, gvfs-backends, brightnessctl, zram-tools, fonts-font-awesome,
+ grim, slurp, wl-clipboard, playerctl, xwayland
+Description: Lumo OS session defaults (labwc, Lumo Bar, services, policies)
+ System-wide configuration that defines the Lumo Shell session: labwc
+ keybindings and root menu, Lumo Bar (top bar + dock) for Waybar, SDDM
+ session file, wallpaper service, lock/screenshot helpers, portal, polkit,
+ sysctl, journald, zram and udev defaults, plus per-user application
+ configuration skeletons.
+Section: x11
+Priority: optional
+Homepage: https://github.com/salom600/lumo-os

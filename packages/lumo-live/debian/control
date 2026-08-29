@@ -1,0 +1,15 @@
+Package: lumo-live
+Version: 1.0
+Architecture: all
+Maintainer: Lumo OS Team <salom600@users.noreply.github.com>
+Depends: openssh-client
+Recommends: openssh-server
+Description: Lumo OS live session bootstrap and test mode
+ Creates the live user (with passwordless sudo), configures SDDM autologin
+ for the live medium, and implements the opt-in automated test mode
+ (lumo.test=1 kernel flag): ephemeral SSH key from the kernel command line
+ and a serial-console resource report for CI validation. Strictly a no-op
+ on installed systems.
+Section: admin
+Priority: optional
+Homepage: https://github.com/salom600/lumo-os

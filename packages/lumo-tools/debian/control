@@ -1,0 +1,16 @@
+Package: lumo-tools
+Version: 1.0
+Architecture: all
+Maintainer: Lumo OS Team <salom600@users.noreply.github.com>
+Depends: python3, python3-gi, gir1.2-gtk-4.0, gir1.2-gtk4layershell-1.0,
+ lumo-theme, swaylock, brightnessctl, pulseaudio-utils, network-manager,
+ bluetooth, policykit-1
+Description: Lumo OS shell tools (launcher, quick settings, calendar, power)
+ Interactive GTK4 layer-shell components of Lumo Shell: the full-screen
+ application launcher with instant search, the Quick Settings control
+ center (Wi-Fi, Bluetooth, Game Mode, volume, brightness), the calendar
+ popup, the power dialog, the welcome window and the Game Mode governor
+ helper. Every control drives a real system backend.
+Section: x11
+Priority: optional
+Homepage: https://github.com/salom600/lumo-os

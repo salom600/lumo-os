@@ -1,0 +1,122 @@
+/* Lumo Bar - Lumo OS shell chrome (top bar + floating dock)
+ * Matches the Lumo OS design reference: dark glass, rounded, blue accent. */
+
+* {
+  font-family: "Inter", "Noto Sans", "Noto Sans Arabic", sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  min-height: 0;
+  border: none;
+  box-shadow: none;
+  text-shadow: none;
+  background: transparent;
+  color: #f2f1f0;
+}
+
+/* ---------- Top status bar ---------- */
+window#waybar.bar {
+  background-color: rgba(10, 11, 18, 0.84);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.bar .modules-left,
+.bar .modules-center,
+.bar .modules-right {
+  padding: 0 8px;
+}
+
+.bar .module {
+  margin: 3px 2px;
+  padding: 0 10px;
+  border-radius: 14px;
+}
+
+.bar .module:hover {
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.bar #custom-activities {
+  padding: 0 14px;
+  font-weight: 600;
+  margin: 3px 6px 3px 2px;
+}
+
+.bar #clock {
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+
+.bar #battery,
+.bar #network,
+.bar #bluetooth,
+.bar #pulseaudio,
+.bar #tray {
+  padding: 0 8px;
+}
+
+.bar #battery.charging, .bar #battery.plugged { color: #2ec27e; }
+.bar #battery.discharging.at-risk { color: #ff7800; }
+.bar #battery.discharging.low, .bar #battery.discharging.critical { color: #e01b24; }
+
+.bar #pulseaudio.muted { color: rgba(242, 241, 240, 0.45); }
+.bar #network.disconnected { color: #e01b24; }
+
+.bar #tray > .active { margin: 0 3px; padding: 3px; border-radius: 8px; }
+.bar #tray menu, .bar #taskbar menu { background: rgba(24, 26, 38, 0.97); border: 1px solid rgba(255,255,255,0.09); border-radius: 12px; padding: 4px; }
+
+/* ---------- Floating left dock ---------- */
+window#waybar.dock {
+  background-color: rgba(18, 20, 30, 0.74);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 24px;
+}
+
+.dock .module { margin: 0; padding: 0; }
+
+.dock #image,
+.dock #custom-trash {
+  margin: 4px 9px;
+  padding: 0;
+  border-radius: 14px;
+  transition: background-color 0.15s ease;
+}
+
+.dock #image:hover,
+.dock #custom-trash:hover {
+  background: rgba(255, 255, 255, 0.10);
+}
+
+.dock #taskbar {
+  margin: 2px 6px 6px 6px;
+}
+
+.dock #taskbar button {
+  margin: 3px 3px;
+  padding: 3px;
+  border-radius: 14px;
+  background: transparent;
+  transition: background-color 0.15s ease;
+}
+
+.dock #taskbar button:hover {
+  background: rgba(255, 255, 255, 0.10);
+}
+
+.dock #taskbar button.active {
+  background: rgba(53, 132, 228, 0.30);
+}
+
+.dock #separator {
+  margin: 4px 14px;
+  min-height: 1px;
+  background: rgba(255, 255, 255, 0.10);
+}
+
+/* ---------- Tooltips ---------- */
+tooltip {
+  background: rgba(24, 26, 38, 0.97);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 12px;
+  padding: 8px 12px;
+  color: #f2f1f0;
+}

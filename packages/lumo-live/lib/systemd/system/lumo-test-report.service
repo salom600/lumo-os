@@ -1,0 +1,12 @@
+[Unit]
+Description=Lumo OS automated test resource report (test mode only)
+ConditionPathExists=/run/live/medium
+After=graphical.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/lumo-test-report
+StandardOutput=journal
+
+[Install]
+WantedBy=graphical.target

@@ -1,0 +1,13 @@
+[Unit]
+Description=Lumo OS wallpaper daemon
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=/usr/libexec/lumo/wallpaper.sh
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=graphical-session.target

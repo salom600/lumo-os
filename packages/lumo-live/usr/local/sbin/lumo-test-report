@@ -1,0 +1,33 @@
+#!/bin/sh
+# lumo-test-report - dumps boot/resource evidence to the serial console
+# when booted with lumo.test=1 (used by the CI QEMU smoke test).
+grep -q 'lumo.test=1' /proc/cmdline || exit 0
+
+# wait up to 6 minutes for the graphical session
+USER_ID="$(id -u lumo 2>/dev/null || echo 1000)"
+for _ in $(seq 1 72); do
+    [ -S "/run/user/${USER_ID}/wayland-0" ] && break
+    [ -S "/run/user/${USER_ID}/wayland-1" ] && break
+    sleep 5
+done
+
+sleep 20   # let the session settle
+
+{
+    echo ""
+    echo "=== LUMO OS RESOURCE REPORT ==="
+    date -u
+    echo "--- free -m ---"
+    free -m
+    echo "--- /proc/meminfo (head) ---"
+    head -n 5 /proc/meminfo
+    echo "--- top processes by RSS ---"
+    ps -eo rss,pid,comm --sort=-rss | head -n 14
+    echo "--- failed units ---"
+    systemctl --failed --no-legend --no-pager || true
+    echo "--- boot time ---"
+    systemd-analyze 2>/dev/null || true
+    echo "--- uptime ---"
+    cat /proc/uptime
+    echo "=== END LUMO REPORT ==="
+} > /dev/console 2>&1 || true

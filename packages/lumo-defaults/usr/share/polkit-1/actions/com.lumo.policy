@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC
+ "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+<policyconfig>
+
+  <action id="com.lumo.installer.run">
+    <description>Run the Lumo OS installer</description>
+    <message>Installing Lumo OS requires administrator access</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>yes</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/bin/calamares</annotate>
+  </action>
+
+  <action id="com.lumo.perf.toggle">
+    <description>Toggle Lumo Game Mode (CPU governor)</description>
+    <message>Switching the CPU performance profile requires authorization</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>yes</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/bin/lumo-perf</annotate>
+  </action>
+
+</policyconfig>

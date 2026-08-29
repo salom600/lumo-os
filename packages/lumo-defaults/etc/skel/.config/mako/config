@@ -1,0 +1,24 @@
+# Lumo notifications (mako)
+font=Inter 11
+background-color=#1a1c2ae8
+text-color=#f2f1f0
+border-color=#3584e480
+border-size=1
+border-radius=14
+padding=12
+margin=14
+width=360
+height=90
+icons=1
+max-icon-size=44
+default-timeout=6000
+ignore-timeout=0
+anchor=bottom-right
+layer=overlay
+sort=-time
+
+[urgency=high]
+background-color=#2d1a1ae8
+border-color=#e01b2480
+default-timeout=0
+ignore-timeout=1

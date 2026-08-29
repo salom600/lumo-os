@@ -1,0 +1,14 @@
+# Applications and quality-of-life
+cups
+system-config-printer
+printer-driver-gutenprint
+spice-vdagent
+qemu-guest-agent
+mesa-vulkan-drivers
+vulkan-tools
+gamemode
+gir1.2-packagekitglib-1.0
+xdg-utils
+gnome-keyring
+cryptsetup
+btrfs-progs

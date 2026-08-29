@@ -1,0 +1,15 @@
+Package: lumo-store
+Version: 1.0
+Architecture: all
+Maintainer: Lumo OS Team <salom600@users.noreply.github.com>
+Depends: python3, python3-gi, gir1.2-gtk-4.0, packagekit, packagekit-tools,
+ appstream, lumo-theme, policykit-1
+Description: Lumo OS software center
+ Real, lightweight software center for Lumo OS: browses Debian AppStream
+ catalogs, installs/removes/updates packages through PackageKit, shows
+ pending updates, detects missing firmware and recommends drivers, and
+ includes a gaming section (Steam, Wine, GameMode, MangoHud, controller
+ tools). No fake buttons - every action drives the package system.
+Section: admin
+Priority: optional
+Homepage: https://github.com/salom600/lumo-os

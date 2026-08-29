@@ -1,0 +1,5 @@
+# zram-tools configuration for Lumo OS
+# Modern zram setup: zstd, 50% of RAM, low page-cluster handled via sysctl
+ALGO=zstd
+PERCENT=50
+PRIORITY=100

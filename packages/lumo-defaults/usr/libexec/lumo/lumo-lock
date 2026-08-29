@@ -1,0 +1,19 @@
+#!/bin/sh
+# Lumo lock screen (swaylock, themed)
+exec swaylock -f \
+  --indicator \
+  --daemon=no \
+  --inside-color=1a1c26cc \
+  --line-color=00000000 \
+  --ring-color=3584e4 \
+  --ring-ver-color=6e53c4 \
+  --key-hl-color=3584e4 \
+  --bs-hl-color=e01b24 \
+  --separator-color=00000000 \
+  --text-color=f2f1f0 \
+  --text-clear-color=f2f1f0 \
+  --text-ver-color=f2f1f0 \
+  --text-wrong-color=e01b24 \
+  --font="Inter 12" \
+  --ignore-empty-password \
+  --show-failed-attempts

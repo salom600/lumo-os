@@ -1,0 +1,42 @@
+[org.gnome.desktop.interface]
+color-scheme='prefer-dark'
+gtk-theme='Adwaita-dark'
+icon-theme='Papirus'
+font-name='Inter 11'
+document-font-name='Inter 11'
+monospace-font-name='Noto Sans Mono 11'
+cursor-theme='Adwaita'
+clock-format='12h'
+clock-show-weekday=true
+show-battery-percentage=true
+
+[org.gnome.desktop.wm.preferences]
+button-layout=':'
+audible-bell=false
+
+[org.gnome.desktop.background]
+picture-uri='/usr/share/lumo/wallpapers/lumo-aurora-light.png'
+picture-uri-dark='/usr/share/lumo/wallpapers/lumo-aurora-dark.png'
+
+[org.gnome.desktop.screensaver]
+picture-uri='/usr/share/lumo/wallpapers/lumo-aurora-dark.png'
+
+[org.gnome.desktop.session]
+idle-delay=900
+
+[org.gnome.desktop.peripherals.touchpad]
+tap-to-click=true
+natural-scroll=true
+two-finger-scrolling-enabled=true
+
+[org.gnome.nautilus.preferences]
+default-folder-viewer='icon-view'
+search-view='list-view'
+show-hidden-files=false
+
+[org.gnome.nautilus.icon-view]
+default-zoom-level='standard'
+caption-timestamp=false
+
+[org.gnome.desktop.sound]
+event-sounds=true

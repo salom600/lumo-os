@@ -1,0 +1,165 @@
+{
+  "bar": [
+    {
+      "name": "bar",
+      "layer": "top",
+      "position": "top",
+      "height": 38,
+      "exclusive": true,
+      "passthrough": false,
+      "reload_style_on_change": true,
+      "modules-left": ["custom/activities", "tray"],
+      "modules-center": ["clock"],
+      "modules-right": ["network", "bluetooth", "battery", "pulseaudio", "image/power"],
+
+      "custom/activities": {
+        "format": "Activities",
+        "on-click": "lumo-launcher",
+        "tooltip": false
+      },
+
+      "tray": {
+        "icon-size": 17,
+        "spacing": 6,
+        "show-passive-items": false
+      },
+
+      "clock": {
+        "format": "{:%a %b %-d  %I:%M %p}",
+        "tooltip-format": "<big>{:%A, %B %d %Y}</big>",
+        "on-click": "lumo-calendar",
+        "interval": 30
+      },
+
+      "network": {
+        "interface": "*",
+        "format-wifi": "{icon}",
+        "format-ethernet": "{icon}",
+        "format-disconnected": "{icon}",
+        "format-icons": {
+          "wifi": "\uf1eb",
+          "ethernet": "\uf0ff",
+          "disconnected": "\uf06a"
+        },
+        "tooltip-format-wifi": "{essid} ({signalStrength}%)",
+        "tooltip-format-ethernet": "{ipaddr}",
+        "tooltip-format-disconnected": "No connection",
+        "on-click": "lumo-qs",
+        "interval": 5
+      },
+
+      "bluetooth": {
+        "format-on": "\uf293",
+        "format-off": "",
+        "format-disabled": "",
+        "format-connected": "\uf293",
+        "tooltip-format-on": "Bluetooth on",
+        "tooltip-format-connected": "Bluetooth: {device_alias}",
+        "tooltip-format-off": "Bluetooth off",
+        "on-click": "lumo-qs",
+        "interval": 10
+      },
+
+      "battery": {
+        "states": { "low": 25, "at-risk": 15, "critical": 8 },
+        "format": "{capacity}%  {icon}",
+        "format-charging": "{capacity}%  \uf0e7",
+        "format-plugged": "{capacity}%  \uf1e6",
+        "format-icons": ["\uf244", "\uf243", "\uf242", "\uf241", "\uf240"],
+        "interval": 30,
+        "on-click": "lumo-qs"
+      },
+
+      "pulseaudio": {
+        "format": "{icon}",
+        "format-muted": "\uf6a9",
+        "format-icons": { "default": ["\uf028"] },
+        "tooltip-format": "{desc}: {volume}%",
+        "scroll-step": 5,
+        "on-click": "lumo-qs",
+        "on-click-right": "pavucontrol"
+      },
+
+      "image/power": {
+        "path": "/usr/share/icons/hicolor/scalable/apps/lumo-power.svg",
+        "size": 15,
+        "on-click": "lumo-power",
+        "tooltip": "Power"
+      }
+    },
+    {
+      "name": "dock",
+      "layer": "top",
+      "position": "left",
+      "width": 62,
+      "exclusive": false,
+      "margin-top": 8,
+      "margin-bottom": 8,
+      "margin-left": 8,
+      "reload_style_on_change": true,
+      "modules-left": [
+        "image/files",
+        "image/browser",
+        "image/terminal",
+        "image/editor",
+        "image/store",
+        "image/settings"
+      ],
+      "modules-center": ["wlr/taskbar"],
+      "modules-right": ["image/trash"],
+
+      "image/files": {
+        "path": "/usr/share/icons/Papirus/64x64/apps/org.gnome.Nautilus.svg",
+        "size": 40,
+        "on-click": "nautilus",
+        "tooltip": "Files"
+      },
+      "image/browser": {
+        "path": "/usr/share/icons/Papirus/64x64/apps/firefox-esr.svg",
+        "size": 40,
+        "on-click": "firefox-esr",
+        "tooltip": "Firefox"
+      },
+      "image/terminal": {
+        "path": "/usr/share/icons/Papirus/64x64/apps/foot.svg",
+        "size": 40,
+        "on-click": "foot",
+        "tooltip": "Terminal"
+      },
+      "image/editor": {
+        "path": "/usr/share/icons/Papirus/64x64/apps/org.gnome.TextEditor.svg",
+        "size": 40,
+        "on-click": "gnome-text-editor",
+        "tooltip": "Text Editor"
+      },
+      "image/store": {
+        "path": "/usr/share/icons/hicolor/scalable/apps/lumo-store.svg",
+        "size": 40,
+        "on-click": "lumo-store",
+        "tooltip": "Lumo Store"
+      },
+      "image/settings": {
+        "path": "/usr/share/icons/hicolor/scalable/apps/lumo-settings.svg",
+        "size": 40,
+        "on-click": "lumo-settings",
+        "tooltip": "Settings"
+      },
+
+      "wlr/taskbar": {
+        "format": "{icon}",
+        "icon-size": 36,
+        "tooltip-format": "{title}",
+        "on-click": "activate",
+        "on-click-middle": "close",
+        "ignore-list": ["waybar"]
+      },
+
+      "image/trash": {
+        "path": "/usr/share/icons/Papirus/64x64/places/user-trash.svg",
+        "size": 34,
+        "on-click": "nautilus trash:///",
+        "tooltip": "Trash"
+      }
+    }
+  ]
+}

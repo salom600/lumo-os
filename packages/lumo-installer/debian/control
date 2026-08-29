@@ -1,0 +1,14 @@
+Package: lumo-installer
+Version: 1.0
+Architecture: all
+Maintainer: Lumo OS Team <salom600@users.noreply.github.com>
+Depends: calamares, kpmcore, os-prober, cryptsetup, pkexec, lumo-theme
+Description: Lumo OS system installer (Calamares configuration and branding)
+ Complete Calamares installer setup for Lumo OS: UEFI+BIOS aware
+ partitioning defaults, squashfs-based system copy (unpackfs), user and
+ hostname creation, locale/keyboard setup, GRUB installation and a
+ finalize hook that purges the installer and live infrastructure from the
+ installed system. Fully branded with Lumo OS identity and slideshow.
+Section: admin
+Priority: optional
+Homepage: https://github.com/salom600/lumo-os

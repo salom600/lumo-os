@@ -1,0 +1,18 @@
+# Lumo OS - base system (no desktop)
+systemd
+systemd-sysv
+linux-image-amd64
+firmware-linux-free
+live-boot
+live-config
+live-tools
+sudo
+dbus-user-session
+locales
+console-setup
+keyboard-configuration
+tzdata
+openssh-client
+openssh-server
+ca-certificates
+rsync

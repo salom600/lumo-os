@@ -1,0 +1,28 @@
+#!/bin/sh
+# Lumo session autostart - executed by labwc after compositor start
+
+# publish session environment on the session bus (portals, gvfs, systemd user units)
+dbus-update-activation-environment --systemd \
+  WAYLAND_DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE XDG_SESSION_DESKTOP 2>/dev/null || true
+systemctl --user import-environment WAYLAND_DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE 2>/dev/null || true
+
+# Lumo Bar: top status bar + floating dock
+waybar &
+
+# notifications (themed via ~/.config/mako/config)
+mako &
+
+# polkit agent (auth prompts for Store / Settings actions)
+mate-polkit &
+
+# wallpaper daemon (user service so Settings can restart it)
+systemctl --user --no-block start lumo-wallpaper.service 2>/dev/null || true
+
+# idle management: lock after 15 min, suspend after 40 min (AC only handled by kernel)
+swayidle -w \
+  timeout 900 '/usr/libexec/lumo/lumo-lock' \
+  timeout 2400 'systemctl suspend' \
+  before-sleep '/usr/libexec/lumo/lumo-lock' &
+
+# default xdg dirs on first login
+xdg-user-dirs-update &

@@ -1,0 +1,29 @@
+# Lumo OS GRUB theme
+title-text: "Lumo OS 1.0 (Aurora)"
+desktop-image: "bg.png"
+desktop-color: "#0b0a14"
+title-color: "#f2f1f0"
+title-font: "Inter Regular 22"
+
++ boot_menu {
+  left = 20%
+  top = 38%
+  width = 60%
+  height = 40%
+  item_font = "Inter Regular 16"
+  item_color = "#c9c7e8"
+  selected_item_color = "#ffffff"
+  item_height = 38
+  item_padding = 6
+  item_spacing = 6
+}
+
++ label {
+  left = 20%
+  top = 92%
+  width = 60%
+  text = "Featherlight. Fearless. Beautiful.  |  Debian 13 base"
+  font = "Inter Regular 12"
+  color = "#8f8bb8"
+  align = "left"
+}
