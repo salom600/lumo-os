@@ -57,30 +57,39 @@ qemu-system-x86_64 \
 QEMU_PID=$!
 
 # ------------------------------------------------------------ wait ssh
-log "waiting for SSH (up to ~40 min under TCG)"
+# NOTE: with QEMU user-mode hostfwd, the host-side port accepts connections
+# as soon as QEMU starts, so a plain `nc -z` is meaningless. Use real SSH
+# handshakes instead.
+log "waiting for SSH (up to ~30 min under TCG)"
 SSH_UP=0
-for i in $(seq 1 80); do
-  if nc -z 127.0.0.1 "$SSH_PORT" 2>/dev/null; then SSH_UP=1; break; fi
-  if ! kill -0 "$QEMU_PID" 2>/dev/null; then log "QEMU died early"; fi
-  sleep 30
+for i in $(seq 1 90); do
+  if "${SSHC[@]}" 'echo ok' 2>/dev/null | grep -q ok; then SSH_UP=1; break; fi
+  if ! kill -0 "$QEMU_PID" 2>/dev/null; then log "QEMU died early"; break; fi
+  sleep 20
 done
 if [ "$SSH_UP" != 1 ]; then
-  log "FAIL: SSH never came up"
-  cat "$BUILD_DIR/serial.log" | tail -n 60 || true
+  log "FAIL: SSH never came up; last serial output:"
+  tail -n 80 "$BUILD_DIR/serial.log" 2>/dev/null || true
   exit 1
 fi
-log "SSH is up after ~$((i*30/60)) minutes"
+log "SSH is up after ~$((i*20/60)) minutes"
 
 # ----------------------------------------------------- wait for session
-log "waiting for the Wayland session (autologin)"
+log "waiting for the Wayland session (autologin, up to ~33 min)"
 SESSION_UP=0
-for i in $(seq 1 40); do
+for i in $(seq 1 100); do
   if "${SSHC[@]}" 'test -S /run/user/$(id -u)/wayland-0 || test -S /run/user/$(id -u)/wayland-1' 2>/dev/null; then
     SESSION_UP=1; break
   fi
-  sleep 15
+  if ! kill -0 "$QEMU_PID" 2>/dev/null; then break; fi
+  sleep 20
 done
-[ "$SESSION_UP" = 1 ] || { log "FAIL: desktop session never appeared"; exit 1; }
+if [ "$SESSION_UP" != 1 ]; then
+  log "FAIL: desktop session never appeared; diagnostics:"
+  "${SSHC[@]}" 'systemctl --failed --no-legend; systemctl status display-manager --no-pager -l | tail -n 25; journalctl -b -p err --no-pager | tail -n 40; ls -la /run/user/$(id -u)/ 2>/dev/null' 2>/dev/null || true
+  tail -n 60 "$BUILD_DIR/serial.log" 2>/dev/null || true
+  exit 1
+fi
 log "Wayland session detected"
 
 # ---------------------------------------------------------- reports

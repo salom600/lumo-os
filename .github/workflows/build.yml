@@ -106,6 +106,7 @@ jobs:
           ./scripts/tests/qemu-smoke.sh build/*.iso 2>&1 | tee build/test.log
 
       - name: Upload test evidence
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: lumo-os-test-evidence
@@ -118,6 +119,7 @@ jobs:
           if-no-files-found: warn
 
       - name: Append validation summary to job
+        if: always()
         run: |
           if [ -f build/validation-report.md ]; then
             cat build/validation-report.md >> "$GITHUB_STEP_SUMMARY"
@@ -141,14 +143,10 @@ jobs:
         run: |
           ISO=$(ls build/*.iso | head -n1)
           TAG="v1.0-alpha.${{ github.run_number }}"
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || \
           gh release create "$TAG" --repo "$GITHUB_REPOSITORY" \
             --title "Lumo OS $TAG (Aurora)" \
-            --notes "Automated build from commit ${{ github.sha }}.
-
-          - Live ISO (BIOS + UEFI), safe graphics + failsafe entries
-          - Calamares installer on the live medium ('Install Lumo OS')
-          - See artifacts 'lumo-os-test-evidence' for screenshots and the
-            RAM/CPU validation report." \
-            --draft false --prerelease || true
+            --notes "Automated build from commit ${{ github.sha }}. Live ISO (BIOS + UEFI) with safe-graphics and failsafe boot entries, Calamares installer on the live medium. See artifacts for screenshots and the RAM/CPU validation report." \
+            --draft=false --prerelease=true
           gh release upload "$TAG" "$ISO" "$ISO.sha256" build/package-list.txt \
             --repo "$GITHUB_REPOSITORY" --clobber
