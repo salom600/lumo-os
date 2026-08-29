@@ -50,9 +50,9 @@ log "booting ISO in QEMU (TCG) with lumo.test=1"
 qemu-system-x86_64 \
   -accel tcg,thread=multi -cpu max -smp 4 -m 3072 \
   -kernel "$KDIR/vmlinuz" -initrd "$KDIR/initrd" \
-  -append "boot=live components console=ttyS0 lumo.test=1 lumo.pubkey=${PUBKEY_B64} quiet" \
+  -append "boot=live components console=ttyS0 lumo.test=1 lumo.pubkey=${PUBKEY_B64} systemd.show_status=1" \
   -cdrom "$ISO" -no-reboot -display none \
-  -device virtio-net-pci,netdev=n0 -netdev "user,id=n0,hostfwd=tcp:127.0.0.1:${SSH_PORT}-:22" \
+  -device e1000,netdev=n0 -netdev "user,id=n0,hostfwd=tcp:127.0.0.1:${SSH_PORT}-:22" \
   -serial "file:$BUILD_DIR/serial.log" &
 QEMU_PID=$!
 
@@ -69,7 +69,7 @@ for i in $(seq 1 90); do
 done
 if [ "$SSH_UP" != 1 ]; then
   log "FAIL: SSH never came up; last serial output:"
-  tail -n 80 "$BUILD_DIR/serial.log" 2>/dev/null || true
+  tail -n 200 "$BUILD_DIR/serial.log" 2>/dev/null || true
   exit 1
 fi
 log "SSH is up after ~$((i*20/60)) minutes"
