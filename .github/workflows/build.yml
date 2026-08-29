@@ -47,12 +47,20 @@ jobs:
           sudo apt-get install -y -qq mmdebstrap squashfs-tools xorriso \
             grub-pc-bin grub-efi-amd64-bin mtools dosfstools e2fsprogs \
             arch-test debootstrap >/dev/null
+          # Ubuntu's debian-archive-keyring is too old for trixie - install
+          # the current keyring straight from the Debian archive.
+          curl -fsSL -o /tmp/dak.deb \
+            http://deb.debian.org/debian/pool/main/d/debian-archive-keyring/debian-archive-keyring_2025.1_all.deb
+          sudo dpkg -i /tmp/dak.deb
+          ls -la /usr/share/keyrings/debian-archive-keyring.gpg
 
       - name: Build Lumo debs
         run: ./scripts/build-debs.sh
 
       - name: Build ISO (mmdebstrap -> squashfs -> grub-mkrescue)
-        run: sudo -E ./scripts/build-iso.sh 2>&1 | tee build/build.log
+        run: |
+          set -o pipefail
+          sudo -E ./scripts/build-iso.sh 2>&1 | tee build/build.log
 
       - name: Show build report
         run: cat build/build-report.txt
@@ -93,7 +101,9 @@ jobs:
           path: build
 
       - name: Boot ISO in QEMU and validate
-        run: ./scripts/tests/qemu-smoke.sh build/*.iso 2>&1 | tee build/test.log
+        run: |
+          set -o pipefail
+          ./scripts/tests/qemu-smoke.sh build/*.iso 2>&1 | tee build/test.log
 
       - name: Upload test evidence
         uses: actions/upload-artifact@v4
