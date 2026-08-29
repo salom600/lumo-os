@@ -1,5 +1,4 @@
-# System installer (Calamares)
+# System installer (Calamares) - libkpmcore & QML modules come with calamares
 calamares
-kpmcore
 os-prober
 cryptsetup
