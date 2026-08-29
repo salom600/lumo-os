@@ -3,7 +3,7 @@ Version: 1.0
 Architecture: all
 Maintainer: Lumo OS Team <salom600@users.noreply.github.com>
 Depends: python3, python3-gi, gir1.2-gtk-4.0, packagekit, packagekit-tools,
- appstream, lumo-theme, policykit-1
+ appstream, lumo-theme, polkitd, pkexec
 Description: Lumo OS software center
  Real, lightweight software center for Lumo OS: browses Debian AppStream
  catalogs, installs/removes/updates packages through PackageKit, shows

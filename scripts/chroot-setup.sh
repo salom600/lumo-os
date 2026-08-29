@@ -5,7 +5,7 @@ export DEBIAN_FRONTEND=noninteractive
 
 echo "[lumo] installing Lumo packages"
 dpkg -i /root/debs/*.deb || apt-get -f install -y
-dpkg -i /root/debs/*.deb   # second pass: resolve inter-package deps
+dpkg -i /root/debs/*.deb || apt-get -f install -y   # second pass resolves ordering
 
 echo "[lumo] generating locales (en + Arabic for RTL)"
 sed -i 's/^# *en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen
