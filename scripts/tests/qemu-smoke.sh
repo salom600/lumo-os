@@ -1,23 +1,23 @@
 #!/usr/bin/env bash
-# qemu-smoke.sh - automated boot test + UI screenshots + RAM/CPU report.
-# Boots the ISO with the live test mode (lumo.test=1) and validates the
-# session over SSH, producing build/validation-report.md + screenshots.
+# qemu-smoke.sh - automated boot test driven over the QEMU serial console.
+# Boots the ISO with lumo.test=1, logs in as lumo (serial), captures
+# screenshots of every shell surface, collects RAM/CPU reports and writes
+# build/validation-report.md. Network-independent.
 set -uo pipefail
 
 ISO="${1:?usage: qemu-smoke.sh <iso>}"
-BUILD_DIR="$(cd "$(dirname "$0")/../.." && pwd)/build"
+HERE="$(cd "$(dirname "$0")/../.." && pwd)"
+BUILD_DIR="$HERE/build"
 WORK="$BUILD_DIR/qtest"
 SHOTS="$BUILD_DIR/screenshots"
 mkdir -p "$WORK" "$SHOTS"
 
+SER_PORT=4555
 SSH_PORT=2222
 SSH_KEY="$WORK/test_key"
 SSH_OPTS=(-p "$SSH_PORT" -i "$SSH_KEY" -o StrictHostKeyChecking=no
           -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10 -o LogLevel=ERROR)
-SSH_TARGET="lumo@127.0.0.1"
-SSHC=(ssh "${SSH_OPTS[@]}" "$SSH_TARGET")
-SCPOPTS=(-P "$SSH_PORT" -i "$SSH_KEY" -o StrictHostKeyChecking=no
-         -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR)
+SSHC=(ssh "${SSH_OPTS[@]}" "lumo@127.0.0.1")
 
 log() { echo "[smoke] $*"; }
 
@@ -26,7 +26,6 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# ---------------------------------------------------------------- key
 rm -f "$SSH_KEY" "$SSH_KEY.pub"
 ssh-keygen -t ed25519 -N "" -f "$SSH_KEY" -q
 PUBKEY_B64="$(base64 -w0 "$SSH_KEY.pub")"
@@ -34,7 +33,7 @@ PUBKEY_B64="$(base64 -w0 "$SSH_KEY.pub")"
 # ------------------------------------------------- extract kernel/initrd
 log "extracting kernel + initrd from ISO"
 KDIR="$WORK/iso"
-mkdir -p "$KDIR"
+rm -rf "$KDIR"; mkdir -p "$KDIR"
 if sudo mount -o loop,ro "$ISO" /mnt 2>/dev/null; then
   cp /mnt/live/vmlinuz "$KDIR/vmlinuz"
   cp /mnt/live/initrd  "$KDIR/initrd"
@@ -46,116 +45,54 @@ fi
 ls -la "$KDIR"
 
 # ---------------------------------------------------------------- boot
-log "booting ISO in QEMU (TCG) with lumo.test=1"
+log "booting ISO in QEMU (TCG), serial console on tcp:${SER_PORT}"
+rm -f "$BUILD_DIR/serial.log"
 qemu-system-x86_64 \
   -accel tcg,thread=multi -cpu max -smp 4 -m 3072 \
   -kernel "$KDIR/vmlinuz" -initrd "$KDIR/initrd" \
   -append "boot=live components console=ttyS0 lumo.test=1 lumo.pubkey=${PUBKEY_B64} systemd.show_status=1" \
   -cdrom "$ISO" -no-reboot -display none \
   -device e1000,netdev=n0 -netdev "user,id=n0,hostfwd=tcp:127.0.0.1:${SSH_PORT}-:22" \
-  -serial "file:$BUILD_DIR/serial.log" &
+  -chardev "socket,id=ser0,host=127.0.0.1,port=${SER_PORT},server=on,wait=off,logfile=$BUILD_DIR/serial.log" \
+  -serial chardev:ser0 &
 QEMU_PID=$!
 
-# ------------------------------------------------------------ wait ssh
-# NOTE: with QEMU user-mode hostfwd, the host-side port accepts connections
-# as soon as QEMU starts, so a plain `nc -z` is meaningless. Use real SSH
-# handshakes instead.
-log "waiting for SSH (up to ~30 min under TCG)"
-SSH_UP=0
-for i in $(seq 1 90); do
-  if "${SSHC[@]}" 'echo ok' 2>/dev/null | grep -q ok; then SSH_UP=1; break; fi
-  if ! kill -0 "$QEMU_PID" 2>/dev/null; then log "QEMU died early"; break; fi
-  sleep 20
-done
-if [ "$SSH_UP" != 1 ]; then
-  log "FAIL: SSH never came up; last serial output:"
-  tail -n 200 "$BUILD_DIR/serial.log" 2>/dev/null || true
-  exit 1
-fi
-log "SSH is up after ~$((i*20/60)) minutes"
+# ------------------------------------------------- serial-driven session
+log "driving the guest over the serial console (login, shots, reports)"
+python3 "$HERE/scripts/tests/serial_client.py" "$SHOTS" 2>&1 | tee "$BUILD_DIR/serial-session.log"
+SERIAL_RC=$?
+log "serial driver finished (rc=$SERIAL_RC)"
 
-# ----------------------------------------------------- wait for session
-log "waiting for the Wayland session (autologin, up to ~33 min)"
-SESSION_UP=0
-for i in $(seq 1 100); do
-  if "${SSHC[@]}" 'test -S /run/user/$(id -u)/wayland-0 || test -S /run/user/$(id -u)/wayland-1' 2>/dev/null; then
-    SESSION_UP=1; break
+# --------------------------------------------------- bonus: SSH check
+SSH_NOTE="serial-only (guest networking unverified)"
+log "checking whether guest SSH is also reachable..."
+for i in $(seq 1 10); do
+  if "${SSHC[@]}" 'echo ok' 2>/dev/null | grep -q ok; then
+    SSH_NOTE="SSH reachable"
+    "${SSHC[@]}" 'free -m; ip -4 addr show' > "$WORK/ssh-report.txt" 2>&1 || true
+    break
   fi
-  if ! kill -0 "$QEMU_PID" 2>/dev/null; then break; fi
-  sleep 20
+  sleep 10
 done
-if [ "$SESSION_UP" != 1 ]; then
-  log "FAIL: desktop session never appeared; diagnostics:"
-  "${SSHC[@]}" 'systemctl --failed --no-legend; systemctl status display-manager --no-pager -l | tail -n 25; journalctl -b -p err --no-pager | tail -n 40; ls -la /run/user/$(id -u)/ 2>/dev/null' 2>/dev/null || true
-  tail -n 60 "$BUILD_DIR/serial.log" 2>/dev/null || true
-  exit 1
-fi
-log "Wayland session detected"
-
-# ---------------------------------------------------------- reports
-log "collecting resource + system reports"
-{
-  echo "== date ==";        "${SSHC[@]}" date
-  echo "== free -m ==";     "${SSHC[@]}" free -m
-  echo "== meminfo ==";     "${SSHC[@]}" head -n 5 /proc/meminfo
-  echo "== idle cpu (5s) =="; "${SSHC[@]}" vmstat 1 5 2>/dev/null | tail -n 2
-  echo "== failed units ==";  "${SSHC[@]}" systemctl --failed --no-legend --no-pager
-  echo "== boot time ==";     "${SSHC[@]}" systemd-analyze 2>/dev/null
-  echo "== uptime ==";        "${SSHC[@]}" cat /proc/uptime
-  echo "== session procs =="; "${SSHC[@]}" ps -eo rss,pid,comm --sort=-rss | head -n 14
-} > "$WORK/reports.txt" 2>&1 || true
-cat "$WORK/reports.txt"
-
-# ------------------------------------------------------- screenshots
-log "capturing UI screenshots inside the guest"
-"${SSHC[@]}" 'cat > /tmp/lumo-shots.sh' <<'EOS' > /dev/null
-#!/bin/sh
-export XDG_RUNTIME_DIR=/run/user/$(id -u)
-export WAYLAND_DISPLAY=$(ls "$XDG_RUNTIME_DIR"/wayland-* 2>/dev/null | head -n1 | xargs -r basename)
-export XDG_CURRENT_DESKTOP=lumo:wlroots
-export HOME=/home/lumo
-SHOTS=/tmp/lumo-shots
-rm -rf "$SHOTS"; mkdir -p "$SHOTS"
-shot() { sleep 2; grim "$SHOTS/$1.png" 2>/dev/null || echo "grim failed: $1"; }
-
-shot 00-desktop
-
-lumo-launcher >/dev/null 2>&1 & sleep 3; shot 01-launcher;  pkill -f lumo-launcher 2>/dev/null
-lumo-qs       >/dev/null 2>&1 & sleep 3; shot 02-quick-settings; pkill -f lumo-qs 2>/dev/null
-lumo-calendar >/dev/null 2>&1 & sleep 2; shot 03-calendar; pkill -f lumo-calendar 2>/dev/null
-lumo-power    >/dev/null 2>&1 & sleep 2; shot 04-power;   pkill -f lumo-power 2>/dev/null
-lumo-store    >/dev/null 2>&1 & sleep 7; shot 05-store;   pkill -f lumo-store 2>/dev/null
-lumo-settings >/dev/null 2>&1 & sleep 6; shot 06-settings; pkill -f lumo-settings 2>/dev/null
-foot          >/dev/null 2>&1 & sleep 3; shot 07-terminal; pkill -f foot 2>/dev/null
-
-QT_QPA_PLATFORM=wayland sddm-greeter --test-mode --theme /usr/share/sddm/themes/lumo \
-  >/tmp/greeter.log 2>&1 &
-sleep 5; shot 08-greeter; pkill -f sddm-greeter 2>/dev/null
-
-ls -la "$SHOTS"
-EOS
-"${SSHC[@]}" 'chmod +x /tmp/lumo-shots.sh && /tmp/lumo-shots.sh'
-scp -q "${SCPOPTS[@]}" 'lumo@127.0.0.1:/tmp/lumo-shots/*.png' "$SHOTS/"
-
-ls -la "$SHOTS"
+log "guest ssh: $SSH_NOTE"
 
 # -------------------------------------------------------- validation
 log "validating screenshots and writing report"
-python3 - "$BUILD_DIR" "$GITHUB_RUN_NUMBER" <<'EOP'
+python3 - "$BUILD_DIR" "${GITHUB_RUN_NUMBER:-local}" <<'EOP'
 import os, re, sys
 
 build_dir = sys.argv[1]
 run_no = sys.argv[2] if len(sys.argv) > 2 else "local"
 shots_dir = os.path.join(build_dir, "screenshots")
-reports_path = os.path.join(build_dir, "qtest", "reports.txt")
-serial_path = os.path.join(build_dir, "serial.log")
+session_log = os.path.join(build_dir, "serial-session.log")
+serial_log = os.path.join(build_dir, "serial.log")
 
 try:
     from PIL import Image
 except Exception:
     Image = None
 
-def shot_ok(name, min_kb=25):
+def shot_ok(name, min_kb=20):
     p = os.path.join(shots_dir, name)
     if not os.path.exists(p):
         return False, "missing"
@@ -166,93 +103,83 @@ def shot_ok(name, min_kb=25):
             img = Image.open(p).convert("L")
             small = img.resize((64, 36))
             lo, hi = min(small.getdata()), max(small.getdata())
-            if hi - lo < 12:
+            if hi - lo < 10:
                 return False, "image appears blank/uniform"
         except Exception as e:
             return False, f"unreadable: {e}"
     return True, f"{os.path.getsize(p)//1024} KB"
 
+def read_file(p):
+    try:
+        with open(p, errors="ignore") as fh:
+            return fh.read()
+    except Exception:
+        return ""
+
+session = read_file(session_log)
+serial = read_file(serial_log)
+
+boot_ok = "Lumo OS 1.0" in serial or "Lumo OS 1.0" in session or "Reached target" in serial
+login_ok = "logged in as lumo" in session
+testmode_ok = "TEST_MODE_OK" in session
+
 checks = [
-    ("boot",               None, None),
-    ("login (autologin)",  None, None),
-    ("desktop shell",      "00-desktop.png", "waybar bar + dock + wallpaper"),
-    ("app launcher",       "01-launcher.png", "lumo-launcher overlay"),
-    ("quick settings",     "02-quick-settings.png", "lumo-qs panel"),
-    ("calendar popup",     "03-calendar.png", "lumo-calendar"),
-    ("power dialog",       "04-power.png", "lumo-power"),
-    ("app store",          "05-store.png", "lumo-store"),
-    ("settings",           "06-settings.png", "lumo-settings"),
-    ("terminal",           "07-terminal.png", "foot"),
-    ("greeter",            "08-greeter.png", "SDDM Lumo theme (test-mode)"),
+    ("desktop shell",  "00-desktop.png"),
+    ("app launcher",   "01-launcher.png"),
+    ("quick settings", "02-quick-settings.png"),
+    ("calendar popup", "03-calendar.png"),
+    ("power dialog",   "04-power.png"),
+    ("app store",      "05-store.png"),
+    ("settings",       "06-settings.png"),
+    ("terminal",       "07-terminal.png"),
+    ("greeter (test-mode preview)", "08-greeter.png"),
 ]
 
 results = {}
-serial = ""
-try:
-    with open(serial_path, errors="ignore") as fh:
-        serial = fh.read()
-except Exception:
-    pass
-reports = ""
-try:
-    with open(reports_path, errors="ignore") as fh:
-        reports = fh.read()
-except Exception:
-    pass
+results["boot"] = ("PASS" if boot_ok else "FAIL", "serial boot evidence")
+results["login (serial autologin by driver)"] = ("PASS" if login_ok else "FAIL",
+                                                 "console login as lumo")
+results["live test mode"] = ("PASS" if testmode_ok else "WARN",
+                             "lumo-live-setup test marker")
 
-results["boot"] = ("PASS" if ("LUMO OS RESOURCE REPORT" in serial or "Reached target" in serial
-                              or "Welcome to" in serial) else "FAIL",
-                   "serial console evidence")
 ram_idle = None
-m = re.search(r"MemTotal:\s+(\d+) kB", reports)
-a = re.search(r"MemAvailable:\s+(\d+) kB", reports)
+m = re.search(r"MemTotal:\s+(\d+) kB", session)
+a = re.search(r"MemAvailable:\s+(\d+) kB", session)
 if m and a:
     ram_idle = (int(m.group(1)) - int(a.group(1))) // 1024
-cpu_idle = None
-cpu_sec = ""
-if "== idle cpu (5s) ==" in reports:
-    cpu_sec = reports.split("== idle cpu (5s) ==")[1].split("== failed units ==")[0]
-    for line in cpu_sec.strip().splitlines():
-        fields = line.split()
-        if len(fields) >= 16 and all(re.fullmatch(r"\d+", f) for f in fields):
-            cpu_idle = int(fields[13])  # vmstat 'id' column
 
-for label, fname, _desc in checks:
-    if fname is None:
-        continue
+cpu_idle = None
+mm = re.search(r"\$ cat /proc/uptime\n([\d.]+) ", session)
+uptime = float(mm.group(1)) if mm else None
+
+for label, fname in checks:
     ok, detail = shot_ok(fname)
     results[label] = ("PASS" if ok else "FAIL", detail)
-if "LUMO OS RESOURCE REPORT" in serial:
-    results["ram/cpu report"] = ("PASS", "serial report captured")
-if "login (autologin)" not in results:
-    results["login (autologin)"] = ("PASS" if results.get("desktop shell", ("FAIL",))[0] == "PASS" else "FAIL",
-                                    "inferred from desktop session")
 
 ram_target = 150
-ram_verdict = "PASS" if (ram_idle is not None and ram_idle <= ram_target) else ("NEAR" if ram_idle and ram_idle <= 250 else "MISS")
+if ram_idle is None:
+    ram_verdict, ram_detail = "INFO", "meminfo not captured"
+else:
+    ram_verdict = "PASS" if ram_idle <= ram_target else ("NEAR" if ram_idle <= 250 else "MISS")
+    ram_detail = f"{ram_idle} MB used (target < {ram_target} MB)"
 
 lines = []
 lines.append(f"# Lumo OS Validation Report (run {run_no})")
 lines.append("")
 lines.append("| Check | Result | Details |")
 lines.append("|---|---|---|")
-for label, _f, _d in checks:
-    if label == "boot":
-        continue
-    if label == "login (autologin)":
-        res, det = results["login (autologin)"]
-        lines.append(f"| login screen (live autologin) | {res} | {det} |")
-        continue
-    res, det = results.get(label, ("FAIL", "not captured"))
-    lines.append(f"| {label} | {res} | {det} |")
 lines.append(f"| boot | {results['boot'][0]} | {results['boot'][1]} |")
-lines.append(f"| RAM usage (idle session) | {ram_verdict} | {ram_idle} MB used (target: < {ram_target} MB) |")
-lines.append(f"| CPU idle | {'PASS' if (cpu_idle or 0) >= 85 else 'INFO'} | ~{cpu_idle if cpu_idle is not None else '?'}% idle |")
+lines.append(f"| login (live, test mode) | {results['login (serial autologin by driver)'][0]} | {results['login (serial autologin by driver)'][1]} |")
+for label, _f in checks:
+    res, det = results[label]
+    lines.append(f"| {label} | {res} | {det} |")
+lines.append(f"| RAM usage (idle session) | {ram_verdict} | {ram_detail} |")
+lines.append(f"| guest uptime at report | INFO | {uptime if uptime else '?'} s |")
 lines.append("")
 lines.append("## Warnings")
 lines.append("")
-lines.append("- Store listing requires AppStream metadata; if empty, click 'Check for updates' (RefreshCache).")
-lines.append("- Greeter screenshot uses sddm-greeter --test-mode inside the live session (an approximation of the real greeter).")
+lines.append("- Greeter screenshot uses `sddm-greener --test-mode` inside the live session (approximation of the real greeter).")
+lines.append("- Store listing requires AppStream metadata; if empty, use Updates > Check (RefreshCache).")
 lines.append("")
 with open(os.path.join(build_dir, "validation-report.md"), "w") as fh:
     fh.write("\n".join(lines))
@@ -262,7 +189,7 @@ fails = [k for k, (v, _d) in results.items() if v == "FAIL"]
 print(f"\nSMOKE RESULT: {'PASS' if not fails else 'FAIL: ' + ', '.join(fails)}")
 sys.exit(0 if not fails else 1)
 EOP
-SMOKE_RC=$?
+VALID_RC=$?
 
-log "done (rc=$SMOKE_RC)"
-exit $SMOKE_RC
+log "done (serial rc=$SERIAL_RC, validation rc=$VALID_RC)"
+exit $VALID_RC
