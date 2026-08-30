@@ -62,11 +62,19 @@ ln -sf /usr/lib/systemd/system/sddm.service /etc/systemd/system/display-manager.
 mkdir -p /etc/systemd/system/graphical.target.wants
 ln -sf /usr/lib/systemd/system/lumo-live-setup.service /etc/systemd/system/graphical.target.wants/lumo-live-setup.service
 ln -sf /usr/lib/systemd/system/lumo-test-report.service /etc/systemd/system/graphical.target.wants/lumo-test-report.service
-mkdir -p /etc/systemd/system/display-manager.service.d
+mkdir -p /etc/systemd/system/display-manager.service.d /etc/systemd/system/sddm.service.d
 cat > /etc/systemd/system/display-manager.service.d/lumo-live.conf <<'EOF'
 [Service]
 ExecStartPre=-/usr/local/sbin/lumo-live-setup
 EOF
+cat > /etc/systemd/system/sddm.service.d/lumo-live.conf <<'EOF'
+[Service]
+ExecStartPre=-/usr/local/sbin/lumo-live-setup
+EOF
+# build-log proof that the live bits exist and are wired
+ls -la /usr/local/sbin/lumo-live-setup /lib/systemd/system/lumo-live-setup.service
+ls -la /etc/systemd/system/graphical.target.wants/ | grep lumo || true
+ls -la /etc/systemd/system/sddm.service.d/ /etc/systemd/system/serial-getty@ttyS0.service.d/ 2>/dev/null || true
 
 echo "[lumo] initramfs (adds live-boot hooks)"
 update-initramfs -u -k all
