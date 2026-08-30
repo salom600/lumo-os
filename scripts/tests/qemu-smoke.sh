@@ -278,6 +278,28 @@ cat "$WORK/status.txt" 2>/dev/null || true
   echo "== coredumps =="
   "${SSHC[@]}" 'sudo -n coredumpctl list --no-pager 2>/dev/null | tail -n 10 || true'
 } >> "$WORK/reports.txt" 2>&1 || true
+
+# If apps segfaulted (rc=139): install gdb INSIDE the guest and get a real
+# backtrace of one crashing app (stack-overflow recursion - top frame is
+# arbitrary, the CYCLE is the evidence). Also try GTK_THEME=Adwaita to
+# rule the Lumo CSS in or out.
+if grep -q "rc=139" "$WORK/status.txt" 2>/dev/null; then
+  log "installing gdb in the guest for backtraces (one-time, ~2-4 min under TCG)"
+  "${SSHC[@]}" 'sudo -n apt-get update -qq 2>&1 | tail -n 2; sudo -n apt-get install -y -qq gdb 2>&1 | tail -n 2' || true
+  "${SSHC[@]}" 'export XDG_RUNTIME_DIR=/run/user/$(id -u); export WAYLAND_DISPLAY=$(ls "$XDG_RUNTIME_DIR"/wayland-* 2>/dev/null | head -n1 | xargs -r basename); export GSK_RENDERER=cairo GTK_A11Y=none NO_AT_BRIDGE=1 HOME=/home/lumo DBUS_SESSION_BUS_ADDRESS="unix:path=$XDG_RUNTIME_DIR/bus";
+    timeout 60 gdb -batch -ex run -ex "bt 30" --args /usr/bin/python3 /usr/libexec/lumo/lumo-settings > /tmp/gdb-settings.txt 2>&1; echo "gdb-settings rc=$?"
+    tail -n 34 /tmp/gdb-settings.txt' | tail -n 40
+  "${SSHC[@]}" 'export XDG_RUNTIME_DIR=/run/user/$(id -u); export WAYLAND_DISPLAY=$(ls "$XDG_RUNTIME_DIR"/wayland-* 2>/dev/null | head -n1 | xargs -r basename); export GSK_RENDERER=cairo GTK_A11Y=none NO_AT_BRIDGE=1 HOME=/home/lumo DBUS_SESSION_BUS_ADDRESS="unix:path=$XDG_RUNTIME_DIR/bus";
+    timeout 60 gdb -batch -ex run -ex "bt 30" --args /usr/bin/python3 /usr/libexec/lumo/lumo-launcher > /tmp/gdb-launcher.txt 2>&1; echo "gdb-launcher rc=$?"
+    tail -n 34 /tmp/gdb-launcher.txt' | tail -n 40
+  echo "== gdb backtraces ==" >> "$WORK/reports.txt"
+  "${SSHC[@]}" 'cat /tmp/gdb-settings.txt /tmp/gdb-launcher.txt 2>/dev/null | tail -n 80' >> "$WORK/reports.txt" 2>&1 || true
+  # experiment: does the Lumo CSS crash the launcher, or is it deeper?
+  "${SSHC[@]}" 'export XDG_RUNTIME_DIR=/run/user/$(id -u); export WAYLAND_DISPLAY=$(ls "$XDG_RUNTIME_DIR"/wayland-* 2>/dev/null | head -n1 | xargs -r basename); export GSK_RENDERER=cairo GTK_A11Y=none NO_AT_BRIDGE=1 HOME=/home/lumo DBUS_SESSION_BUS_ADDRESS="unix:path=$XDG_RUNTIME_DIR/bus" GTK_THEME=Adwaita;
+    timeout 25 /usr/bin/lumo-launcher > /tmp/app-launcher-adw.log 2>&1; echo "launcher-adwaita rc=$?" >> /tmp/lumo-shots/status.txt;
+    timeout 25 env GTK_THEME=Lumo /usr/bin/lumo-launcher > /tmp/app-launcher-lumo.log 2>&1; echo "launcher-lumo-theme rc=$?" >> /tmp/lumo-shots/status.txt' || true
+  "${SSHC[@]}" 'grep -E "rc=" /tmp/lumo-shots/status.txt | tail -n 4; echo "--- adw log:"; head -c 800 /tmp/app-launcher-adw.log; echo; echo "--- lumo log:"; head -c 800 /tmp/app-launcher-lumo.log' || true
+fi
 "${SSHC[@]}" 'cat /tmp/lumo-shots/00.err /tmp/greeter.log 2>/dev/null | head -n 20' || true
 ls -la "$SHOTS"
 
