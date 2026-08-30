@@ -65,7 +65,7 @@ ln -sf /usr/lib/systemd/system/lumo-test-report.service /etc/systemd/system/grap
 mkdir -p /etc/systemd/system/display-manager.service.d
 cat > /etc/systemd/system/display-manager.service.d/lumo-live.conf <<'EOF'
 [Service]
-ExecStartPre=/usr/local/sbin/lumo-live-setup
+ExecStartPre=-/usr/local/sbin/lumo-live-setup
 EOF
 
 echo "[lumo] initramfs (adds live-boot hooks)"
