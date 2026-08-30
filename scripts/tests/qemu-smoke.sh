@@ -129,7 +129,7 @@ log "collecting resource + system reports"
   echo "== boot time ==";     "${SSHC[@]}" systemd-analyze 2>/dev/null
   echo "== uptime ==";        "${SSHC[@]}" cat /proc/uptime
   echo "== session procs =="; "${SSHC[@]}" ps -eo rss,pid,comm --sort=-rss | head -n 16
-  echo "== lumo sanity ==";   "${SSHC[@]}" 'ls /usr/share/lumo/theme /usr/bin/lumo-* 2>/dev/null | head -n 20; systemctl is-active sddm NetworkManager'
+  echo "== lumo sanity ==";   "${SSHC[@]}" 'ls /usr/share/lumo/theme/ 2>/dev/null; command -v lumo-launcher lumo-store lumo-settings; ls /usr/share/wayland-sessions/'
 } > "$WORK/reports.txt" 2>&1 || true
 cat "$WORK/reports.txt"
 
@@ -145,20 +145,23 @@ SHOTS=/tmp/lumo-shots
 rm -rf "$SHOTS"; mkdir -p "$SHOTS"
 grim "$SHOTS/00-desktop.png" 2>"$SHOTS/00.err" || true
 
-lumo-launcher >/dev/null 2>&1 & sleep 3; grim "$SHOTS/01-launcher.png" 2>/dev/null; pkill -f lumo-launcher 2>/dev/null
-lumo-qs >/dev/null 2>&1 & sleep 3; grim "$SHOTS/02-quick-settings.png" 2>/dev/null; pkill -f lumo-qs 2>/dev/null
-lumo-calendar >/dev/null 2>&1 & sleep 2; grim "$SHOTS/03-calendar.png" 2>/dev/null; pkill -f lumo-calendar 2>/dev/null
-lumo-power >/dev/null 2>&1 & sleep 2; grim "$SHOTS/04-power.png" 2>/dev/null; pkill -f lumo-power 2>/dev/null
-lumo-store >/dev/null 2>&1 & sleep 7; grim "$SHOTS/05-store.png" 2>/dev/null; pkill -f lumo-store 2>/dev/null
-lumo-settings >/dev/null 2>&1 & sleep 6; grim "$SHOTS/06-settings.png" 2>/dev/null; pkill -f lumo-settings 2>/dev/null
+lumo-launcher >/tmp/app-launcher.log 2>&1 & sleep 3; grim "$SHOTS/01-launcher.png" 2>/dev/null; pkill -f lumo-launcher 2>/dev/null
+lumo-qs >/tmp/app-qs.log 2>&1 & sleep 3; grim "$SHOTS/02-quick-settings.png" 2>/dev/null; pkill -f lumo-qs 2>/dev/null
+lumo-calendar >/tmp/app-calendar.log 2>&1 & sleep 2; grim "$SHOTS/03-calendar.png" 2>/dev/null; pkill -f lumo-calendar 2>/dev/null
+lumo-power >/tmp/app-power.log 2>&1 & sleep 2; grim "$SHOTS/04-power.png" 2>/dev/null; pkill -f lumo-power 2>/dev/null
+lumo-store >/tmp/app-store.log 2>&1 & sleep 7; grim "$SHOTS/05-store.png" 2>/dev/null; pkill -f lumo-store 2>/dev/null
+lumo-settings >/tmp/app-settings.log 2>&1 & sleep 6; grim "$SHOTS/06-settings.png" 2>/dev/null; pkill -f lumo-settings 2>/dev/null
 foot >/dev/null 2>&1 & sleep 3; grim "$SHOTS/07-terminal.png" 2>/dev/null; pkill -x foot 2>/dev/null
 
-QT_QPA_PLATFORM=wayland sddm-greeter --test-mode --theme /usr/share/sddm/themes/lumo >/tmp/greeter.log 2>&1 &
+GREETER_BIN=$(command -v sddm-greeter || ls /usr/lib/*/sddm/sddm-greeter 2>/dev/null | head -n1)
+QT_QPA_PLATFORM=wayland "$GREETER_BIN" --test-mode --theme /usr/share/sddm/themes/lumo >/tmp/greeter.log 2>&1 &
 sleep 5; grim "$SHOTS/08-greeter.png" 2>/dev/null; pkill -f sddm-greeter 2>/dev/null
 
+echo "--- app logs ---"
+for f in /tmp/app-*.log; do echo "== $f =="; head -c 600 "$f"; echo; done
 echo SHOTS_COMPLETE
 EOS
-"${SSHC[@]}" 'chmod +x /tmp/lumo-shots.sh && /tmp/lumo-shots.sh' 2>&1 | tail -n 5
+"${SSHC[@]}" 'chmod +x /tmp/lumo-shots.sh && /tmp/lumo-shots.sh' 2>&1 | tail -n 40
 scp -q "${SSH_OPTS[@]/-p/-P}" 'lumo@127.0.0.1:/tmp/lumo-shots/*.png' "$SHOTS/" 2>/dev/null \
   || scp -q -P "$SSH_PORT" -i "$SSH_KEY" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
        'lumo@127.0.0.1:/tmp/lumo-shots/*.png' "$SHOTS/"
@@ -209,7 +212,7 @@ reports = read_file(reports_path)
 serial = read_file(serial_log)
 
 boot_ok = "Lumo OS 1.0" in serial or "graphical.target" in serial or "Reached target" in serial
-lumo_files_ok = "lumo-session" in reports and "rc.xml" in reports
+lumo_files_ok = "lumo-launcher" in reports and "apps-dark.css" in reports
 
 checks = [
     ("desktop shell",  "00-desktop.png"),
