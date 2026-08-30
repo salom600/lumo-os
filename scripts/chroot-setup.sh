@@ -21,6 +21,9 @@ for f in /usr/share/lumo/session/lumo-session /usr/share/wayland-sessions/lumo.d
 done
 LS_LIB=$(ls /usr/lib/x86_64-linux-gnu/libgtk4-layer-shell.so.0 /usr/lib/*/libgtk4-layer-shell.so.0* 2>/dev/null | head -n1)
 [ -n "$LS_LIB" ] && [ -e "$LS_LIB" ] || { echo "[lumo] ERROR: libgtk4-layer-shell runtime not found (needed by Lumo Shell apps)"; exit 1; }
+# GTK4 infinite-recurses in real_choose_icon when a missing icon hits an
+# invalid fallback-theme chain - hicolor's index.theme MUST be present.
+[ -e /usr/share/icons/hicolor/index.theme ] || { echo "[lumo] ERROR: /usr/share/icons/hicolor/index.theme missing (GTK4 icon lookup would recurse infinitely)"; exit 1; }
 echo "[lumo] all critical files present (layer-shell: $LS_LIB)"
 
 echo "[lumo] generating locales (en + Arabic for RTL)"

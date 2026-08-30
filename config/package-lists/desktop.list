@@ -24,6 +24,8 @@ libspa-0.2-bluetooth
 bluez
 brightnessctl
 papirus-icon-theme
+hicolor-icon-theme
+adwaita-icon-theme
 fonts-inter
 fonts-font-awesome
 fonts-noto-core
