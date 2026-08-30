@@ -104,7 +104,10 @@ echo "--- session logs ---"
 ls -la /home/lumo/.local/share/sddm/ 2>/dev/null
 cat /home/lumo/.local/share/sddm/*.log 2>/dev/null | tail -n 40
 echo "--- journal lumo/labwc/wayland ---"
-journalctl -b --no-pager 2>/dev/null | grep -iE "labwc|greeter|wayland|autolog" | tail -n 30' 2>/dev/null || true
+journalctl -b --no-pager 2>/dev/null | grep -iE "labwc|greeter|wayland|autolog" | tail -n 30
+echo "--- test session unit ---"
+systemctl status lumo-test-session --no-pager -l 2>/dev/null | tail -n 25
+journalctl -b -u lumo-test-session --no-pager 2>/dev/null | tail -n 40' 2>/dev/null || true
   exit 1
 fi
 log "Wayland session detected"
