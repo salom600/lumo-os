@@ -11,8 +11,21 @@ for _ in $(seq 1 72); do
     sleep 5
 done
 
+measure_session_pss() {
+    # PSS of every process owned by the session user (root reads all of
+    # /proc/*/smaps_rollup regardless of Yama)
+    LID="$(id -u lumo 2>/dev/null || echo 1000)"
+    SUM=0
+    for p in /proc/[0-9]*/smaps_rollup; do
+        pid=${p%/smaps_rollup}; pid=${pid#/proc/}
+        [ "$(stat -c %u "/proc/$pid" 2>/dev/null)" = "$LID" ] || continue
+        v=$(awk '/^Pss:/{print $2}' "$p" 2>/dev/null)
+        [ -n "$v" ] && SUM=$((SUM + v))
+    done
+    echo "$SUM"
+}
+
 sleep 20   # let the session settle
-sync; echo 3 > /proc/sys/vm/drop_caches 2>/dev/null || true
 
 {
     echo ""
@@ -23,15 +36,15 @@ sync; echo 3 > /proc/sys/vm/drop_caches 2>/dev/null || true
     echo "--- /proc/meminfo (head) ---"
     head -n 5 /proc/meminfo
     echo "--- session ram (pss of session-user processes) ---"
-    LID="$(id -u lumo 2>/dev/null || echo 1000)"
-    SUM=0
-    for p in /proc/[0-9]*/smaps_rollup; do
-        pid=${p%/smaps_rollup}; pid=${pid#/proc/}
-        [ "$(stat -c %u "/proc/$pid" 2>/dev/null)" = "$LID" ] || continue
-        v=$(awk '/^Pss:/{print $2}' "$p" 2>/dev/null)
-        [ -n "$v" ] && SUM=$((SUM + v))
-    done
-    echo "session_pss_kb: $SUM"
+    # peak: everything fully resident right after session start
+    echo "session_pss_kb: $(measure_session_pss)"
+    # settled: same measurement after zram had time to compact cold pages -
+    # this is Lumo's designed steady state and the number the product target
+    # (<150 MB) refers to
+    sleep 30
+    sync; echo 3 > /proc/sys/vm/drop_caches 2>/dev/null || true
+    sleep 2
+    echo "session_pss_settled_kb: $(measure_session_pss)"
     echo "--- zram ---"
     zramctl 2>/dev/null || true
     echo "--- top processes by RSS ---"

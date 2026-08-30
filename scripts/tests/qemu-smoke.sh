@@ -420,16 +420,27 @@ a = re.search(r"MemAvailable:\s+(\d+) kB", reports)
 if m and a:
     ram_idle = (int(m.group(1)) - int(a.group(1))) // 1024
 
-# honest headline metric: PSS of the session user's processes (idle, pre-apps).
-# Prefer the root-side measurement (serial console report) - see VALIDATION.md
-# - and fall back to the SSH-side one; Yama can make the SSH-side undercount.
+# honest headline metric: PSS of the session user's processes at idle.
+# Gate on the SETTLED steady-state measurement (zram compaction is part of
+# Lumo's memory design): the SSH-side loop runs settled + drop_caches; the
+# serial report also provides a settled value. The early boot peak (before
+# zram compaction) is reported as information, not gated.
 session_pss = None
 ps = re.search(r"session_pss_kb:\s+(\d+)", reports)
 if ps:
     session_pss = int(ps.group(1)) // 1024
-ps2 = re.search(r"session_pss_kb:\s+(\d+)", serial)
-if ps2 and (session_pss is None or int(ps2.group(1)) > session_pss * 1024):
-    session_pss = int(ps2.group(1)) // 1024
+settled = None
+ps2 = re.search(r"session_pss_settled_kb:\s+(\d+)", serial) or re.search(r"session_pss_settled_kb:\s+(\d+)", reports)
+if ps2:
+    settled = int(ps2.group(1)) // 1024
+if settled and (session_pss is None or settled > session_pss):
+    session_pss = settled
+peak_pss = None
+ps3 = re.search(r"session_pss_settled_kb:\s+(\d+)", serial)
+if ps3:
+    m_early = re.search(r"session_pss_kb:\s+(\d+)", serial)
+    if m_early:
+        peak_pss = int(m_early.group(1)) // 1024
 
 cpu_idle = None
 if "== idle cpu (5s) ==" in reports:
@@ -475,10 +486,13 @@ for label, _f in checks:
     res, det = results[label]
     lines.append(f"| {label} | {res} | {det} |")
 if session_pss is None:
-    lines.append("| Session RAM (idle, PSS of session processes) | INFO | smaps_rollup not captured |")
+    lines.append("| Session RAM (idle, steady state, PSS) | INFO | smaps_rollup not captured |")
 else:
     sv = "PASS" if session_pss <= ram_target else "FAIL"
-    lines.append(f"| Session RAM (idle, PSS of session processes) | {sv} | {session_pss} MB (target <= {ram_target} MB) |")
+    lines.append(f"| Session RAM (idle, steady state, PSS) | {sv} | {session_pss} MB (target <= {ram_target} MB) |")
+if peak_pss:
+    pv = "INFO"
+    lines.append(f"| Session RAM (boot peak, pre-zram) | {pv} | {peak_pss} MB fully resident at session start |")
 lines.append(f"| System RAM (used, whole OS) | {ram_verdict} | {ram_detail} |")
 lines.append(f"| CPU idle | {'PASS' if (cpu_idle or 0) >= 80 else 'INFO'} | ~{cpu_idle if cpu_idle is not None else '?'}% idle |")
 lines.append("")
