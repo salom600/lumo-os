@@ -24,7 +24,12 @@ LS_LIB=$(ls /usr/lib/x86_64-linux-gnu/libgtk4-layer-shell.so.0 /usr/lib/*/libgtk
 # GTK4 infinite-recurses in real_choose_icon when a missing icon hits an
 # invalid fallback-theme chain - hicolor's index.theme MUST be present.
 [ -e /usr/share/icons/hicolor/index.theme ] || { echo "[lumo] ERROR: /usr/share/icons/hicolor/index.theme missing (GTK4 icon lookup would recurse infinitely)"; exit 1; }
-echo "[lumo] all critical files present (layer-shell: $LS_LIB)"
+# SVG-only icons (all of Papirus) require the gdk-pixbuf SVG loader; without
+# it every SVG icon lookup "misses" and image-missing recursion can loop.
+SVG_LOADER=$(ls /usr/lib/*/gdk-pixbuf-2.0/*/loaders/libpixbufloader_svg.so 2>/dev/null | head -n1)
+[ -n "$SVG_LOADER" ] || { echo "[lumo] ERROR: gdk-pixbuf SVG loader missing (install librsvg2-common)"; exit 1; }
+gdk-pixbuf-query-loaders --update-cache 2>/dev/null || true
+echo "[lumo] icon stack verified (svg loader: $SVG_LOADER)"
 
 echo "[lumo] generating locales (en + Arabic for RTL)"
 sed -i 's/^# *en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen

@@ -3,6 +3,7 @@ labwc
 waybar
 sddm
 qt6-wayland
+librsvg2-common
 swaybg
 swaylock
 swayidle

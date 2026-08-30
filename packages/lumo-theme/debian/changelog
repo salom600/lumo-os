@@ -1,4 +1,8 @@
-lumo-theme (1.1) unstable; urgency=medium
+lumo-theme (1.2) unstable; urgency=medium
+
+  * PNG image-missing fallback (SVG-only unthemed icons are discarded when
+    the gdk-pixbuf SVG loader is absent -> infinite recursion); install
+    librsvg2-common so Papirus SVG icons actually load.
 
   * Ship guaranteed image-missing fallback icons (hicolor + pixmaps):
     GTK 4.18 real_choose_icon() infinite-recurses (stack overflow) when
