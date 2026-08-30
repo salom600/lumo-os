@@ -45,22 +45,25 @@ fi
 ls -la "$KDIR"
 
 # ---------------------------------------------------------------- boot
-log "booting ISO in QEMU (TCG), serial console on tcp:${SER_PORT}"
-rm -f "$BUILD_DIR/serial.log"
+log "booting ISO in QEMU (TCG), serial on stdio via FIFO"
+rm -f "$BUILD_DIR/serial.log" "$WORK/serial-in"
+mkfifo "$WORK/serial-in"
 qemu-system-x86_64 \
   -accel tcg,thread=multi -cpu max -smp 4 -m 3072 \
   -kernel "$KDIR/vmlinuz" -initrd "$KDIR/initrd" \
   -append "boot=live components console=ttyS0 lumo.test=1 lumo.pubkey=${PUBKEY_B64} systemd.show_status=1" \
-  -cdrom "$ISO" -no-reboot -display none \
+  -cdrom "$ISO" -no-reboot -display none -monitor none \
   -device e1000,netdev=n0 -netdev "user,id=n0,hostfwd=tcp:127.0.0.1:${SSH_PORT}-:22" \
-  -chardev "socket,id=ser0,host=127.0.0.1,port=${SER_PORT},server=on,wait=off,logfile=$BUILD_DIR/serial.log" \
-  -serial chardev:ser0 &
+  -serial stdio \
+  < "$WORK/serial-in" > "$BUILD_DIR/serial.log" 2> "$WORK/qemu-err.log" &
 QEMU_PID=$!
 
 # ------------------------------------------------- serial-driven session
 log "driving the guest over the serial console (login, shots, reports)"
-python3 "$HERE/scripts/tests/serial_client.py" "$SHOTS" 2>&1 | tee "$BUILD_DIR/serial-session.log"
-SERIAL_RC=$?
+python3 "$HERE/scripts/tests/serial_client.py" "$SHOTS" \
+  --fifo "$WORK/serial-in" --stream "$BUILD_DIR/serial.log" \
+  2>&1 | tee "$BUILD_DIR/serial-session.log"
+SERIAL_RC=${PIPESTATUS[0]}
 log "serial driver finished (rc=$SERIAL_RC)"
 
 # --------------------------------------------------- bonus: SSH check

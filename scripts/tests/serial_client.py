@@ -1,70 +1,70 @@
 #!/usr/bin/env python3
-"""serial_client.py - drives the Lumo OS live guest through the QEMU serial
-console (TCP chardev). Logs in, runs diagnostics and collects screenshots
-as base64 streams. Network-independent (works even without guest networking).
+"""serial_client.py - drives the Lumo OS live guest through QEMU's stdio
+serial (a FIFO for input, a followed log file for output).
+
+Logs in as lumo over the console, prints diagnostics, waits for the
+Wayland session, runs the in-guest screenshot script and streams the PNGs
+back as base64. Network-independent by design.
 """
+import argparse
 import base64
+import os
 import socket
 import sys
 import time
 
-HOST, PORT = "127.0.0.1", 4555
 
+class SerialIO:
+    """FIFO writer + stream-file follower, with terminal query replies."""
 
-class Serial:
-    def __init__(self, port=PORT):
-        self.sock = socket.create_connection((HOST, port), timeout=10)
-        self.sock.settimeout(0.5)
-        self.buf = b""
-        self.raw_log = []
+    def __init__(self, fifo_path, stream_path):
+        self.stream_path = stream_path
+        self._fh = open(fifo_path, "w", buffering=0)  # blocks until qemu reads
+        self.buf = ""
+        self._pos = 0
 
-    def _reply_to_terminal_queries(self, chunk):
-        # agetty/login probe the terminal with ESC[6n (cursor position);
-        # a real terminal answers - emulate one so the guest never blocks.
-        if b"\x1b[6n" in chunk:
+    def _reply_to_terminal_queries(self, text):
+        if "\x1b[6n" in text:
             try:
-                self.sock.sendall(b"\x1b[32766;32766R")
+                self._fh.write("\x1b[32766;32766R")
             except Exception:
                 pass
 
-    def read_avail(self, limit=65536):
+    def pump(self):
         try:
-            while True:
-                chunk = self.sock.recv(65536)
-                if not chunk:
-                    break
-                self._reply_to_terminal_queries(chunk)
-                self.buf += chunk
-                if len(self.raw_log) < 4000:
-                    self.raw_log.append(chunk)
-                if len(self.buf) > 8 * 1024 * 1024:
-                    self.buf = self.buf[-4 * 1024 * 1024:]
-        except socket.timeout:
-            pass
+            with open(self.stream_path, "r", errors="replace") as fh:
+                fh.seek(self._pos)
+                data = fh.read()
+                self._pos = fh.tell()
+        except FileNotFoundError:
+            data = ""
         except Exception:
-            pass
+            data = ""
+        if data:
+            self._reply_to_terminal_queries(data)
+            self.buf += data
+            if len(self.buf) > 8 * 1024 * 1024:
+                self.buf = self.buf[-4 * 1024 * 1024:]
+        return data
 
     def read_until(self, patterns, timeout):
-        """Wait until any of the byte patterns appears in the buffer."""
         end = time.time() + timeout
-        pats = [p.encode() if isinstance(p, str) else p for p in patterns]
         while time.time() < end:
-            self.read_avail()
-            for p in pats:
+            self.pump()
+            for p in patterns:
                 idx = self.buf.find(p)
                 if idx >= 0:
                     out = self.buf[: idx + len(p)]
                     self.buf = self.buf[idx + len(p):]
-                    return out.decode(errors="replace")
-            time.sleep(0.2)
-        tail = self.buf[-3000:].decode(errors="replace")
-        raise TimeoutError(f"serial timeout waiting for {patterns}; tail:\n{tail}")
+                    return out
+            time.sleep(0.25)
+        raise TimeoutError(f"serial timeout waiting for {patterns}; tail:\n{self.buf[-1500:]}")
 
     def send(self, text):
-        if isinstance(text, str):
-            text = text.replace("\n", "\r")
-            text = text.encode()
-        self.sock.sendall(text)
+        try:
+            self._fh.write(text)
+        except Exception as exc:
+            print(f"[serial] write failed: {exc}")
 
     def sendline(self, line=""):
         # CR is the correct terminal Enter; guest icrnl translates to LF
@@ -73,66 +73,92 @@ class Serial:
     def drain(self, seconds=1.0):
         end = time.time() + seconds
         while time.time() < end:
-            self.read_avail()
+            self.pump()
             time.sleep(0.1)
-        out = self.buf.decode(errors="replace")
-        self.buf = b""
+        out, self.buf = self.buf, ""
         return out
 
 
-def run_command(ser, cmd, timeout=120, marker=None):
-    """Run a command at the shell prompt, return its output (minus echo)."""
-    marker = marker or f"CMDDONE{time.time_ns() % 100000}"
-    ser.buf = b""
+def run_command(ser, cmd, timeout=120):
+    marker = f"CMDDONE{time.time_ns() % 100000}"
+    ser.buf = ""
     ser.sendline(cmd + f"; echo {marker}")
     out = ser.read_until([marker], timeout)
-    # strip the echoed command and the marker itself
     lines = out.splitlines()
-    if lines and lines[0].rstrip().endswith(cmd.split(";")[0].strip()[-40:]):
-        lines = lines[1:]
-    result = "\n".join(lines[:-1])  # drop marker line
-    return result
+    return "\n".join(lines[:-1])
+
+
+SHOTS_SCRIPT = r"""#!/bin/sh
+export XDG_RUNTIME_DIR=/run/user/$(id -u)
+export WAYLAND_DISPLAY=$(ls "$XDG_RUNTIME_DIR"/wayland-* 2>/dev/null | head -n1 | xargs -r basename)
+export XDG_CURRENT_DESKTOP=lumo:wlroots
+export HOME=/home/lumo
+SHOTS=/tmp/lumo-shots
+rm -rf "$SHOTS"; mkdir -p "$SHOTS"
+grim "$SHOTS/00-desktop.png" 2>"$SHOTS/00.err" || true
+
+lumo-launcher >/dev/null 2>&1 & sleep 3; grim "$SHOTS/01-launcher.png" 2>/dev/null; pkill -f lumo-launcher 2>/dev/null
+lumo-qs >/dev/null 2>&1 & sleep 3; grim "$SHOTS/02-quick-settings.png" 2>/dev/null; pkill -f lumo-qs 2>/dev/null
+lumo-calendar >/dev/null 2>&1 & sleep 2; grim "$SHOTS/03-calendar.png" 2>/dev/null; pkill -f lumo-calendar 2>/dev/null
+lumo-power >/dev/null 2>&1 & sleep 2; grim "$SHOTS/04-power.png" 2>/dev/null; pkill -f lumo-power 2>/dev/null
+lumo-store >/dev/null 2>&1 & sleep 7; grim "$SHOTS/05-store.png" 2>/dev/null; pkill -f lumo-store 2>/dev/null
+lumo-settings >/dev/null 2>&1 & sleep 6; grim "$SHOTS/06-settings.png" 2>/dev/null; pkill -f lumo-settings 2>/dev/null
+foot >/dev/null 2>&1 & sleep 3; grim "$SHOTS/07-terminal.png" 2>/dev/null; pkill -x foot 2>/dev/null
+
+QT_QPA_PLATFORM=wayland sddm-greeter --test-mode --theme /usr/share/sddm/themes/lumo >/tmp/greeter.log 2>&1 &
+sleep 5; grim "$SHOTS/08-greeter.png" 2>/dev/null; pkill -f sddm-greeter 2>/dev/null
+
+echo SHOTS_COMPLETE
+"""
 
 
 def main():
-    shots_dir = sys.argv[1] if len(sys.argv) > 1 else "build/screenshots"
-    os_mkdir = True
+    ap = argparse.ArgumentParser()
+    ap.add_argument("shots_dir")
+    ap.add_argument("--fifo", default=None)
+    ap.add_argument("--stream", default=None)
+    args = ap.parse_args()
+    fifo = args.fifo or os.environ.get("SERIAL_FIFO", "/tmp/lumo-serial-in")
+    stream = args.stream or os.environ.get("SERIAL_STREAM", "/tmp/lumo-serial.log")
 
-    print("[serial] waiting for login prompt (up to 12 min)...")
-    ser = Serial()
-    deadline_shots = time.time() + 45 * 60
+    print("[serial] waiting for the login prompt (up to 12 min)...")
+    ser = SerialIO(fifo, stream)
 
-    # login (retry - the user may not exist yet right after boot)
     logged_in = False
     for attempt in range(12):
         try:
             ser.read_until(["login:"], timeout=120)
         except TimeoutError:
-            pass
+            print(f"[serial] attempt {attempt}: no login prompt yet")
+            continue
         time.sleep(2)
         ser.sendline("lumo")
         try:
             echo = ser.read_until(["Password:", "incorrect", "$ ", "# "], timeout=30)
-            if "incorrect" in echo:
-                print(f"[serial] attempt {attempt}: login incorrect, retrying...")
-                continue
-            if "Password:" in echo:
-                time.sleep(1)
-                ser.sendline("lumo")
-                echo2 = ser.read_until(["$ ", "# ", "incorrect", "Login"], timeout=30)
-                if "incorrect" in echo2:
-                    print(f"[serial] attempt {attempt}: bad password, retrying...")
-                    continue
-            logged_in = True
-            break
         except TimeoutError:
-            tail = b"".join(ser.raw_log[-12:]).decode(errors="replace")[-500:]
-            print(f"[serial] attempt {attempt}: prompt never advanced; raw tail:\n{tail!r}")
+            print(f"[serial] attempt {attempt}: prompt never advanced; tail:\n{ser.buf[-600:]}")
+            ser.buf = ""
             continue
+        if "incorrect" in echo:
+            print(f"[serial] attempt {attempt}: login incorrect, retrying...")
+            continue
+        if "Password:" in echo:
+            time.sleep(1)
+            ser.sendline("lumo")
+            try:
+                echo2 = ser.read_until(["$ ", "# ", "incorrect", "Login"], timeout=30)
+            except TimeoutError:
+                print(f"[serial] attempt {attempt}: no shell prompt after password")
+                continue
+            if "incorrect" in echo2:
+                print(f"[serial] attempt {attempt}: bad password, retrying...")
+                continue
+        logged_in = True
+        break
+
     if not logged_in:
         print("[serial] FAIL: could not log in over serial")
-        tail = b"".join(ser.raw_log[-40:]).decode(errors="replace")[-2500:]
-        print(tail)
+        print(ser.drain(2)[-2500:])
         sys.exit(1)
     print("[serial] logged in as lumo")
     time.sleep(1)
@@ -156,99 +182,80 @@ def main():
             print(f"$ {cmd} -> TIMEOUT\n{exc}\n")
 
     # ---------------- wait for the Wayland session ----------------
-    print("[serial] waiting for the Wayland session socket...")
-    run_command(
-        ser,
-        "for i in $(seq 1 120); do test -S /run/user/$(id -u)/wayland-0 && break; "
-        "test -S /run/user/$(id -u)/wayland-1 && break; sleep 5; done",
-        timeout=700,
-    )
-    socks = run_command(ser, "ls /run/user/$(id -u)/ | grep wayland", timeout=30)
+    print("[serial] waiting for the Wayland session socket (up to 10 min)...")
+    try:
+        run_command(
+            ser,
+            "for i in $(seq 1 120); do test -S /run/user/$(id -u)/wayland-0 && break; "
+            "test -S /run/user/$(id -u)/wayland-1 && break; sleep 5; done",
+            timeout=700,
+        )
+        socks = run_command(ser, "ls /run/user/$(id -u)/ | grep wayland", timeout=30)
+    except TimeoutError as exc:
+        socks = ""
+        print(f"[serial] session wait timed out: {exc}")
     print(f"[serial] sockets: {socks.strip() or 'NONE'}")
     if "wayland" not in socks:
         print("[serial] FAIL: no wayland socket; session diagnostics:")
-        print(run_command(ser,
-            "systemctl status display-manager --no-pager -l 2>/dev/null | tail -n 30; "
-            "journalctl -b --no-pager | grep -iE 'labwc|sddm|greeter|wayland' | tail -n 40",
-            timeout=60))
+        try:
+            print(run_command(ser,
+                "systemctl status display-manager --no-pager -l 2>/dev/null | tail -n 30; "
+                "journalctl -b --no-pager 2>/dev/null | grep -iE 'labwc|sddm|greeter|wayland' | tail -n 40",
+                timeout=90))
+        except TimeoutError:
+            print("diagnostics timed out")
         sys.exit(1)
 
     # ---------------- screenshots inside the guest ----------------
     print("[serial] transferring and running the screenshot script...")
-    shot_script = r"""#!/bin/sh
-export XDG_RUNTIME_DIR=/run/user/$(id -u)
-export WAYLAND_DISPLAY=$(ls "$XDG_RUNTIME_DIR"/wayland-* 2>/dev/null | head -n1 | xargs -r basename)
-export XDG_CURRENT_DESKTOP=lumo:wlroots
-export HOME=/home/lumo
-SHOTS=/tmp/lumo-shots
-rm -rf "$SHOTS"; mkdir -p "$SHOTS"
-grim "$SHOTS/00-desktop.png" 2>"$SHOTS/00.err" || true
-
-lumo-launcher >/dev/null 2>&1 & sleep 3; grim "$SHOTS/01-launcher.png" 2>/dev/null; pkill -f lumo-launcher 2>/dev/null
-lumo-qs >/dev/null 2>&1 & sleep 3; grim "$SHOTS/02-quick-settings.png" 2>/dev/null; pkill -f lumo-qs 2>/dev/null
-lumo-calendar >/dev/null 2>&1 & sleep 2; grim "$SHOTS/03-calendar.png" 2>/dev/null; pkill -f lumo-calendar 2>/dev/null
-lumo-power >/dev/null 2>&1 & sleep 2; grim "$SHOTS/04-power.png" 2>/dev/null; pkill -f lumo-power 2>/dev/null
-lumo-store >/dev/null 2>&1 & sleep 7; grim "$SHOTS/05-store.png" 2>/dev/null; pkill -f lumo-store 2>/dev/null
-lumo-settings >/dev/null 2>&1 & sleep 6; grim "$SHOTS/06-settings.png" 2>/dev/null; pkill -f lumo-settings 2>/dev/null
-foot >/dev/null 2>&1 & sleep 3; grim "$SHOTS/07-terminal.png" 2>/dev/null; pkill -x foot 2>/dev/null
-
-QT_QPA_PLATFORM=wayland sddm-greeter --test-mode --theme /usr/share/sddm/themes/lumo >/tmp/greeter.log 2>&1 &
-sleep 5; grim "$SHOTS/08-greeter.png" 2>/dev/null; pkill -f sddm-greeter 2>/dev/null
-
-cat > "$SHOTS/index.txt" <<IDX
-$(ls -la "$SHOTS" | tail -n +2)
-$(cat "$SHOTS/00.err" 2>/dev/null)
-DONE_MARKER_XY
-IDX
-echo SHOTS_COMPLETE
-"""
-    # feed the script line by line via a heredoc
     ser.sendline("cat > /tmp/lumo-shots.sh << 'SHOTSEOF'")
-    for line in shot_script.splitlines():
+    for line in SHOTS_SCRIPT.splitlines():
         ser.sendline(line)
         time.sleep(0.01)
     ser.sendline("SHOTSEOF")
-    out = ser.read_until(["SHOTSEOF"], timeout=60)
+    try:
+        ser.read_until(["SHOTSEOF"], timeout=60)
+    except TimeoutError:
+        pass
     run_command(ser, "chmod +x /tmp/lumo-shots.sh", timeout=30)
     result = run_command(ser, "/tmp/lumo-shots.sh", timeout=300)
     print("[serial] shot script output:")
-    print(result[-1500:])
+    print(result[-1200:])
     if "SHOTS_COMPLETE" not in result:
         print("[serial] WARN: shot script may not have completed")
 
     # ---------------- pull screenshots as base64 ----------------
-    import os
-    os.makedirs(shots_dir, exist_ok=True)
+    os.makedirs(args.shots_dir, exist_ok=True)
     listing = run_command(ser, "ls /tmp/lumo-shots/*.png 2>/dev/null", timeout=30)
-    files = [f.strip() for f in listing.splitlines() if f.strip().endswith(".png")]
+    files = [f.strip().replace("PROMPT>", "").strip() for f in listing.splitlines()
+             if f.strip().endswith(".png")]
     print(f"[serial] pulling {len(files)} screenshots...")
     for path in files:
         name = path.rsplit("/", 1)[-1]
-        run_command(ser, "", timeout=5)
         ser.sendline(f"base64 -w 4096 {path}")
         data = ""
         end = time.time() + 240
         while time.time() < end:
-            ser.read_avail()
-            chunk = ser.buf
-            text = chunk.decode(errors="replace")
-            if text.rstrip().endswith("PROMPT>") or "PROMPT>" in text[-30:]:
-                data += text
-                ser.buf = b""
+            ser.pump()
+            if "PROMPT>" in ser.buf[-20:]:
+                data += ser.buf
+                ser.buf = ""
                 break
-            data += text
-            ser.buf = b""
+            data += ser.buf
+            ser.buf = ""
             time.sleep(0.2)
-        # strip prompt noise, keep base64 lines
         b64lines = [l.strip() for l in data.splitlines()
-                    if l.strip() and not l.startswith("PROMPT>")
-                    and not l.startswith("base64") and "PROMPT>" not in l
-                    and not l.startswith("$")]
+                    if l.strip() and "PROMPT>" not in l
+                    and not l.strip().startswith("base64")
+                    and not l.strip().endswith(str(path))]
         try:
             raw = base64.b64decode("".join(b64lines), validate=False)
-            with open(os.path.join(shots_dir, name), "wb") as fh:
-                fh.write(raw)
-            print(f"[serial] saved {name} ({len(raw)//1024} KB)")
+            if len(raw) > 1024:
+                with open(os.path.join(args.shots_dir, name), "wb") as fh:
+                    fh.write(raw)
+                print(f"[serial] saved {name} ({len(raw)//1024} KB)")
+            else:
+                print(f"[serial] {name}: too small ({len(raw)} bytes), skipped")
         except Exception as exc:
             print(f"[serial] decode failed for {name}: {exc}")
 
