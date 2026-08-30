@@ -44,10 +44,26 @@ fi
 ls -la "$KDIR"
 
 # ---------------------------------------------------------------- boot
-log "booting ISO in QEMU (TCG)"
+# KVM when the runner provides /dev/kvm (GitHub ubuntu-24.04+ runners do):
+# native CPU speed. TCG emulation runs the guest CPU 10-50x slower than the
+# real clock, which blows GTK's frame deadlines and triggers a frame-clock
+# recursion stack overflow in GTK4 (first paints miss every 16 ms deadline,
+# the clock reschedules itself synchronously - seen in gdb backtraces as
+# hundreds of identical libgtk-4 frames). KVM also makes the test 10x faster
+# and behaves like real hardware.
+if sudo -n test -e /dev/kvm 2>/dev/null || test -e /dev/kvm; then
+  sudo -n chmod 666 /dev/kvm 2>/dev/null || true
+fi
+if test -w /dev/kvm; then
+  ACCEL=(-accel kvm -cpu host)
+  log "booting ISO in QEMU (KVM - native speed)"
+else
+  ACCEL=(-accel tcg,thread=multi -cpu max)
+  log "booting ISO in QEMU (TCG fallback - no /dev/kvm)"
+fi
 rm -f "$BUILD_DIR/serial.log"
 qemu-system-x86_64 \
-  -accel tcg,thread=multi -cpu max -smp 4 -m 3072 \
+  "${ACCEL[@]}" -smp 4 -m 3072 \
   -kernel "$KDIR/vmlinuz" -initrd "$KDIR/initrd" \
   -append "boot=live components console=ttyS0 lumo.test=1 lumo.pubkey=${PUBKEY_B64} systemd.show_status=1" \
   -cdrom "$ISO" -no-reboot -display none -monitor none \
@@ -287,11 +303,11 @@ if grep -q "rc=139" "$WORK/status.txt" 2>/dev/null; then
   log "installing gdb in the guest for backtraces (one-time, ~2-4 min under TCG)"
   "${SSHC[@]}" 'sudo -n apt-get update -qq 2>&1 | tail -n 2; sudo -n apt-get install -y -qq gdb 2>&1 | tail -n 2' || true
   "${SSHC[@]}" 'export XDG_RUNTIME_DIR=/run/user/$(id -u); export WAYLAND_DISPLAY=$(ls "$XDG_RUNTIME_DIR"/wayland-* 2>/dev/null | head -n1 | xargs -r basename); export GSK_RENDERER=cairo GTK_A11Y=none NO_AT_BRIDGE=1 HOME=/home/lumo DBUS_SESSION_BUS_ADDRESS="unix:path=$XDG_RUNTIME_DIR/bus";
-    timeout 60 gdb -batch -ex run -ex "bt 30" --args /usr/bin/python3 /usr/libexec/lumo/lumo-settings > /tmp/gdb-settings.txt 2>&1; echo "gdb-settings rc=$?"
-    tail -n 34 /tmp/gdb-settings.txt' | tail -n 40
+    timeout 60 gdb -batch -ex run -ex "bt 40" -ex "frame 12" -ex "info symbol $pc" -ex "info registers rip rsp" --args /usr/bin/python3 /usr/libexec/lumo/lumo-settings > /tmp/gdb-settings.txt 2>&1; echo "gdb-settings rc=$?"
+    tail -n 45 /tmp/gdb-settings.txt' | tail -n 50
   "${SSHC[@]}" 'export XDG_RUNTIME_DIR=/run/user/$(id -u); export WAYLAND_DISPLAY=$(ls "$XDG_RUNTIME_DIR"/wayland-* 2>/dev/null | head -n1 | xargs -r basename); export GSK_RENDERER=cairo GTK_A11Y=none NO_AT_BRIDGE=1 HOME=/home/lumo DBUS_SESSION_BUS_ADDRESS="unix:path=$XDG_RUNTIME_DIR/bus";
-    timeout 60 gdb -batch -ex run -ex "bt 30" --args /usr/bin/python3 /usr/libexec/lumo/lumo-launcher > /tmp/gdb-launcher.txt 2>&1; echo "gdb-launcher rc=$?"
-    tail -n 34 /tmp/gdb-launcher.txt' | tail -n 40
+    timeout 60 gdb -batch -ex run -ex "bt 40" -ex "frame 12" -ex "info symbol $pc" -ex "info registers rip rsp" --args /usr/bin/python3 /usr/libexec/lumo/lumo-launcher > /tmp/gdb-launcher.txt 2>&1; echo "gdb-launcher rc=$?"
+    tail -n 45 /tmp/gdb-launcher.txt' | tail -n 50
   echo "== gdb backtraces ==" >> "$WORK/reports.txt"
   "${SSHC[@]}" 'cat /tmp/gdb-settings.txt /tmp/gdb-launcher.txt 2>/dev/null | tail -n 80' >> "$WORK/reports.txt" 2>&1 || true
   # experiment: does the Lumo CSS crash the launcher, or is it deeper?
