@@ -182,6 +182,7 @@ export XDG_RUNTIME_DIR=/run/user/$(id -u)
 export WAYLAND_DISPLAY=$(ls "$XDG_RUNTIME_DIR"/wayland-* 2>/dev/null | head -n1 | xargs -r basename)
 export XDG_CURRENT_DESKTOP=lumo:wlroots
 export HOME=/home/lumo
+export GSK_RENDERER=cairo   # GTK4 GL renderer segfaults via llvmpipe (TCG/no-GPU)
 SHOTS=/tmp/lumo-shots
 STATUS="$SHOTS/status.txt"
 rm -rf "$SHOTS"; mkdir -p "$SHOTS"; : > "$STATUS"
@@ -237,18 +238,23 @@ shot 06-settings.png       60 settings lumo-settings lumo-settings
 plain 07-terminal.png       3 terminal foot           foot
 
 GREETER_BIN=$(command -v sddm-greeter 2>/dev/null || true)
-[ -n "$GREETER_BIN" ] || GREETER_BIN=$(find /usr/libexec /usr/lib -type f -name sddm-greeter 2>/dev/null | head -n1)
-echo "greeter binary: ${GREETER_BIN:-NOT FOUND} (dpkg: $(dpkg -L sddm 2>/dev/null | grep -m1 'bin/greeter\|sddm-greeter'))" >> "$STATUS"
+[ -n "$GREETER_BIN" ] || GREETER_BIN=$(find /usr -name sddm-greeter \( -type f -o -type l \) 2>/dev/null | head -n1)
+echo "greeter binary: ${GREETER_BIN:-NOT FOUND}" >> "$STATUS"
+echo "greeter dpkg: $(dpkg -L sddm 2>/dev/null | grep -E 'sddm-greeter$' | tr '\n' ' ')" >> "$STATUS"
 if [ -n "$GREETER_BIN" ] && [ -x "$GREETER_BIN" ]; then
     plain 08-greeter.png 8 greeter sddm-greeter env QT_QPA_PLATFORM=wayland "$GREETER_BIN" --test-mode --theme /usr/share/sddm/themes/lumo
 else
     echo "08-greeter.png MISSING greeter" >> "$STATUS"
 fi
 
+# crash forensics: segfaults land in dmesg (GTK GL renderer on llvmpipe etc.)
+echo "--- dmesg crashes (if any) ---"
+sudo -n dmesg 2>/dev/null | grep -iE 'segfault|traps|oom|out of memory' | tail -n 20 || true
+
 echo "--- status ---"
 cat "$STATUS"
 echo "--- app logs ---"
-for f in /tmp/app-*.log; do echo "== $f =="; head -c 1200 "$f"; echo; done
+for f in /tmp/app-*.log; do echo "== $f =="; head -c 4000 "$f"; echo; done
 echo SHOTS_COMPLETE
 EOS
 "${SSHC[@]}" 'chmod +x /tmp/lumo-shots.sh && /tmp/lumo-shots.sh' 2>&1 | tail -n 40

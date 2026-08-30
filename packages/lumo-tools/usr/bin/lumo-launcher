@@ -1,5 +1,9 @@
 #!/bin/sh
 # Lumo launcher wrapper.
+# GTK4 cairo renderer: the GL renderer segfaults via llvmpipe on
+# GPU-less machines (VMs, 2007-era hardware).
+GSK_RENDERER=cairo
+export GSK_RENDERER
 # gtk4-layer-shell MUST be in the link map before libwayland-client, or layer
 # surface init silently fails ("may have been linked after libwayland").
 # Python/GI has no link-time ordering, so we preload it explicitly.

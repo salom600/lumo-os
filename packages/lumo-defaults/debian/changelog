@@ -1,4 +1,6 @@
-lumo-defaults (1.2) unstable; urgency=medium
+lumo-defaults (1.3) unstable; urgency=medium
+\
+  * GSK_RENDERER=cairo via labwc env + profile.d; foot.ini color lines fixed.
 
   * Initial Lumo OS 1.0 "Aurora" release.
 

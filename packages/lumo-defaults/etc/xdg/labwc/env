@@ -5,3 +5,8 @@ QT_WAYLAND_DISABLE_WINDOWDECORATION=1
 XDG_PIXMAPS=/usr/share/pixmaps
 _JAVA_AWT_WM_NONREPARENTING=1
 NO_AT_BRIDGE=1
+
+# GTK4: force the cairo renderer. The GL renderer segfaults inside
+# llvmpipe on GPU-less machines (VMs, old 2007-era hardware) and is heavier
+# than cairo for Lumo's simple CSS animations anyway.
+GSK_RENDERER=cairo

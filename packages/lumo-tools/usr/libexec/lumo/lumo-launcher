@@ -122,7 +122,7 @@ class Launcher(Gtk.Application):
         header.append(close_btn)
         panel.append(header)
 
-        self.entry = Gtk.Entry()
+        self.entry = Gtk.SearchEntry()  # Gtk.Entry has no search-changed signal
         self.entry.set_placeholder_text("Search applications…")
         self.entry.add_css_class("lumo-entry")
         self.entry.connect("search-changed", lambda *_: self.flow.invalidate_filter())
