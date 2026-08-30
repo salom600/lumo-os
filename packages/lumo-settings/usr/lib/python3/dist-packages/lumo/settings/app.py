@@ -122,6 +122,13 @@ class SettingsApp(Gtk.Application):
 
         win.set_child(root)
         win.present()
+
+        def _lumo_map_mark(_w=None):
+            # CI hook: lets the test harness wait for the actual map event
+            print("LUMO_MAP_OK", flush=True)
+            return False
+
+        win.connect("map", _lumo_map_mark)
         self.side.select_row(self.rows[0])
 
     def _on_select(self, _list, row):

@@ -94,6 +94,13 @@ class Welcome(Gtk.Application):
         win.set_child(root)
         win.present()
 
+        def _lumo_map_mark(_w=None):
+            # CI hook: lets the test harness wait for the actual map event
+            print("LUMO_MAP_OK", flush=True)
+            return False
+
+        win.connect("map", _lumo_map_mark)
+
     def _install(self, _b):
         try:
             # polkit action com.lumo.installer.run allows the active session

@@ -77,7 +77,7 @@ class Launcher(Gtk.Application):
         overlay.set_child(root)
 
         panel = self._build_panel()
-        overlay.set_overlay(panel)
+        overlay.add_overlay(panel)
         win.set_child(overlay)
 
         esc = Gtk.EventControllerKey()
@@ -85,6 +85,13 @@ class Launcher(Gtk.Application):
         win.add_controller(esc)
 
         win.present()
+
+        def _lumo_map_mark(_w=None):
+            # CI hook: lets the test harness wait for the actual map event
+            print("LUMO_MAP_OK", flush=True)
+            return False
+
+        win.connect("map", _lumo_map_mark)
         self.entry.grab_focus()
 
     # ---------- UI construction ----------

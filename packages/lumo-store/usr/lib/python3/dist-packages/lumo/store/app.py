@@ -123,6 +123,13 @@ class StoreApp(Gtk.Application):
         win.set_child(root)
         win.present()
 
+        def _lumo_map_mark(_w=None):
+            # CI hook: lets the test harness wait for the actual map event
+            print("LUMO_MAP_OK", flush=True)
+            return False
+
+        win.connect("map", _lumo_map_mark)
+
         # initial data
         threading.Thread(target=self._load_data, daemon=True).start()
 

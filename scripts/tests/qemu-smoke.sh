@@ -134,21 +134,23 @@ log "collecting resource + system reports"
 cat "$WORK/reports.txt"
 
 # ------------------------------------------ session RAM (honest metric)
-# Measured BEFORE any test app is launched: proportional set size (PSS) of
+# Measured BEFORE any test app is launched. PSS (proportional set size) of
 # every process owned by the session user = the real "desktop session" RAM.
+# Run as ROOT: kernel.yama.ptrace_scope=1 blocks same-uid reads of other
+# processes' smaps_rollup (run 32 measured 18 MB because labwc/waybar were
+# unreadable; the root-side serial report measured the true 109 MB).
 log "measuring session RAM (PSS of session-user processes, idle, pre-apps)"
-{
-  echo "== session ram (pss) =="
-  "${SSHC[@]}" 'LID=$(id -u lumo 2>/dev/null || echo 1000)
+"${SSHC[@]}" 'cat > /tmp/lumo-ram.sh' <<'RAM' > /dev/null
+LID=$(id -u lumo 2>/dev/null || echo 1000)
 sync
-sudo -n sh -c "echo 3 > /proc/sys/vm/drop_caches" 2>/dev/null || true
+echo 3 > /proc/sys/vm/drop_caches 2>/dev/null || true
 sleep 2
 SUM=0; N=0
 for p in /proc/[0-9]*/smaps_rollup; do
   pid=${p%/smaps_rollup}; pid=${pid#/proc/}
   uid=$(stat -c %u "/proc/$pid" 2>/dev/null) || continue
   [ "$uid" = "$LID" ] || continue
-  v=$(awk "/^Pss:/{print \$2}" "$p" 2>/dev/null)
+  v=$(awk '/^Pss:/{print $2}' "$p" 2>/dev/null)
   [ -n "$v" ] && SUM=$((SUM+v)) && N=$((N+1))
 done
 echo "session_pss_kb: $SUM"
@@ -158,13 +160,17 @@ for p in /proc/[0-9]*/smaps_rollup; do
   pid=${p%/smaps_rollup}; pid=${pid#/proc/}
   uid=$(stat -c %u "/proc/$pid" 2>/dev/null) || continue
   [ "$uid" = "$LID" ] || continue
-  v=$(awk "/^Pss:/{print \$2}" "$p" 2>/dev/null)
+  v=$(awk '/^Pss:/{print $2}' "$p" 2>/dev/null)
   [ -n "$v" ] && echo "$v $(cat /proc/$pid/comm 2>/dev/null) (pid $pid)"
 done | sort -rn | head -n 14
 echo "== zramctl =="
 zramctl 2>/dev/null || true
 echo "== free -m after drop_caches =="
-free -m'
+free -m
+RAM
+{
+  echo "== session ram (pss) =="
+  "${SSHC[@]}" 'sudo -n sh /tmp/lumo-ram.sh 2>/dev/null || sh /tmp/lumo-ram.sh'
 } >> "$WORK/reports.txt" 2>&1 || true
 tail -n 25 "$WORK/reports.txt"
 
@@ -181,11 +187,37 @@ STATUS="$SHOTS/status.txt"
 rm -rf "$SHOTS"; mkdir -p "$SHOTS"; : > "$STATUS"
 grim "$SHOTS/00-desktop.png" 2>"$SHOTS/00.err" || true
 
-# shot <file> <wait_s> <tag> <kill-pattern> <cmd...>
-# launches the app, verifies it is still alive (mapped), then captures.
+# shot <file> <timeout_s> <tag> <kill-pattern> <cmd...>
+# launches the app and WAITS FOR THE REAL MAP EVENT (apps print LUMO_MAP_OK
+# from their window 'map' handler). Under TCG emulation Python+GTK startup
+# takes 5-15 s, so fixed sleeps shot before the window ever mapped.
 shot() {
+    f="$1"; timeout_s="$2"; tag="$3"; killpat="$4"; shift 4
+    logf="/tmp/app-$tag.log"
+    "$@" >"$logf" 2>&1 &
+    p=$!
+    waited=0; st=ALIVE
+    while :; do
+        if grep -q LUMO_MAP_OK "$logf" 2>/dev/null; then
+            sleep 1; break                       # first frame has landed
+        fi
+        if ! kill -0 "$p" 2>/dev/null; then st=DEAD; break; fi
+        if [ "$waited" -ge "$timeout_s" ]; then st=TIMEOUT; break; fi
+        waited=$((waited+2)); sleep 2
+    done
+    echo "$f $st $tag" >> "$STATUS"
+    grim "$SHOTS/$f" 2>/dev/null || true
+    kill "$p" 2>/dev/null || true
+    pkill -f "$killpat" 2>/dev/null || true
+    wait "$p" 2>/dev/null || true
+}
+
+# plain <file> <sleep_s> <tag> <kill-pattern> <cmd...> for apps that cannot
+# print the marker (C programs, Qt)
+plain() {
     f="$1"; wait_s="$2"; tag="$3"; killpat="$4"; shift 4
-    "$@" >"/tmp/app-$tag.log" 2>&1 &
+    logf="/tmp/app-$tag.log"
+    "$@" >"$logf" 2>&1 &
     p=$!
     sleep "$wait_s"
     if kill -0 "$p" 2>/dev/null; then st=ALIVE; else st=DEAD; fi
@@ -196,26 +228,19 @@ shot() {
     wait "$p" 2>/dev/null || true
 }
 
-shot 01-launcher.png        3 launcher lumo-launcher lumo-launcher
-shot 02-quick-settings.png  3 qs       lumo-qs       lumo-qs
-shot 03-calendar.png        3 calendar lumo-calendar lumo-calendar
-shot 04-power.png           3 power    lumo-power    lumo-power
-shot 05-store.png           8 store    lumo-store    lumo-store
-shot 06-settings.png        6 settings lumo-settings lumo-settings
-shot 07-terminal.png        3 terminal foot          foot
+shot 01-launcher.png       40 launcher lumo-launcher lumo-launcher
+shot 02-quick-settings.png 40 qs       lumo-qs       lumo-qs
+shot 03-calendar.png       40 calendar lumo-calendar lumo-calendar
+shot 04-power.png          40 power    lumo-power    lumo-power
+shot 05-store.png          90 store    lumo-store    lumo-store
+shot 06-settings.png       60 settings lumo-settings lumo-settings
+plain 07-terminal.png       3 terminal foot           foot
 
 GREETER_BIN=$(command -v sddm-greeter 2>/dev/null || true)
-[ -n "$GREETER_BIN" ] || GREETER_BIN=$(ls /usr/libexec/sddm/sddm-greeter /usr/lib/*/sddm/sddm-greeter 2>/dev/null | head -n1)
+[ -n "$GREETER_BIN" ] || GREETER_BIN=$(find /usr/libexec /usr/lib -type f -name sddm-greeter 2>/dev/null | head -n1)
+echo "greeter binary: ${GREETER_BIN:-NOT FOUND} (dpkg: $(dpkg -L sddm 2>/dev/null | grep -m1 'bin/greeter\|sddm-greeter'))" >> "$STATUS"
 if [ -n "$GREETER_BIN" ] && [ -x "$GREETER_BIN" ]; then
-    QT_QPA_PLATFORM=wayland "$GREETER_BIN" --test-mode --theme /usr/share/sddm/themes/lumo >/tmp/greeter.log 2>&1 &
-    p=$!
-    sleep 5
-    if kill -0 "$p" 2>/dev/null; then st=ALIVE; else st=DEAD; fi
-    echo "08-greeter.png $st greeter" >> "$STATUS"
-    grim "$SHOTS/08-greeter.png" 2>/dev/null || true
-    kill "$p" 2>/dev/null || true
-    pkill -f sddm-greeter 2>/dev/null || true
-    wait "$p" 2>/dev/null || true
+    plain 08-greeter.png 8 greeter sddm-greeter env QT_QPA_PLATFORM=wayland "$GREETER_BIN" --test-mode --theme /usr/share/sddm/themes/lumo
 else
     echo "08-greeter.png MISSING greeter" >> "$STATUS"
 fi
@@ -331,11 +356,16 @@ a = re.search(r"MemAvailable:\s+(\d+) kB", reports)
 if m and a:
     ram_idle = (int(m.group(1)) - int(a.group(1))) // 1024
 
-# honest headline metric: PSS of the session user's processes (idle, pre-apps)
+# honest headline metric: PSS of the session user's processes (idle, pre-apps).
+# Prefer the root-side measurement (serial console report) - see VALIDATION.md
+# - and fall back to the SSH-side one; Yama can make the SSH-side undercount.
 session_pss = None
 ps = re.search(r"session_pss_kb:\s+(\d+)", reports)
 if ps:
     session_pss = int(ps.group(1)) // 1024
+ps2 = re.search(r"session_pss_kb:\s+(\d+)", serial)
+if ps2 and (session_pss is None or int(ps2.group(1)) > session_pss * 1024):
+    session_pss = int(ps2.group(1)) // 1024
 
 cpu_idle = None
 if "== idle cpu (5s) ==" in reports:

@@ -59,6 +59,13 @@ class Calendar(Gtk.Application):
 
         win.set_child(panel)
         win.present()
+
+        def _lumo_map_mark(_w=None):
+            # CI hook: lets the test harness wait for the actual map event
+            print("LUMO_MAP_OK", flush=True)
+            return False
+
+        win.connect("map", _lumo_map_mark)
         GLib.timeout_add_seconds(1, self._tick)
 
     def _tick(self):
