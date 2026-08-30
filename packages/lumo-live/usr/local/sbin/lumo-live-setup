@@ -40,11 +40,12 @@ else
 fi
 
 # 2) SDDM autologin into the Lumo session
+# NOTE: SDDM matches Session by the .desktop key WITH extension.
 mkdir -p /etc/sddm.conf.d
 cat > /etc/sddm.conf.d/zz-live-autologin.conf <<'EOF'
 [Autologin]
 User=lumo
-Session=lumo
+Session=lumo.desktop
 Relogin=true
 EOF
 
