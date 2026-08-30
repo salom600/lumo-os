@@ -1,0 +1,27 @@
+# Lumo OS automated-test session (CI only).
+# With lumo.test=1 on the kernel command line, the Lumo Shell session is
+# started directly as user lumo on tty7, replacing the display manager for
+# fully deterministic headless validation. Normal boots are untouched:
+# the condition skips this unit and SDDM runs normally.
+[Unit]
+Description=Lumo OS test session (CI)
+ConditionKernelCommandLine=lumo.test=1
+Conflicts=sddm.service
+Before=sddm.service display-manager.service
+After=systemd-user-sessions.service plymouth-quit.service
+
+[Service]
+User=lumo
+PAMName=login
+WorkingDirectory=/home/lumo
+TTYPath=/dev/tty7
+TTYReset=yes
+TTYVTDisallocate=yes
+StandardInput=tty
+StandardOutput=journal
+StandardError=journal
+ExecStart=/usr/bin/dbus-run-session /usr/share/lumo/session/lumo-session
+Restart=on-failure
+
+[Install]
+WantedBy=graphical.target

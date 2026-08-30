@@ -62,6 +62,7 @@ ln -sf /usr/lib/systemd/system/sddm.service /etc/systemd/system/display-manager.
 mkdir -p /etc/systemd/system/graphical.target.wants
 ln -sf /usr/lib/systemd/system/lumo-live-setup.service /etc/systemd/system/graphical.target.wants/lumo-live-setup.service
 ln -sf /usr/lib/systemd/system/lumo-test-report.service /etc/systemd/system/graphical.target.wants/lumo-test-report.service
+ln -sf /usr/lib/systemd/system/lumo-test-session.service /etc/systemd/system/graphical.target.wants/lumo-test-session.service
 mkdir -p /etc/systemd/system/display-manager.service.d /etc/systemd/system/sddm.service.d
 cat > /etc/systemd/system/display-manager.service.d/lumo-live.conf <<'EOF'
 [Service]
