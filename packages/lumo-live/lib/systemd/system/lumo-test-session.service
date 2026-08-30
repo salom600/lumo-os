@@ -24,6 +24,8 @@ StandardError=journal
 Environment=WLR_BACKENDS=headless
 # GTK4 cairo renderer (llvmpipe segfaults under TCG)
 Environment=GSK_RENDERER=cairo
+Environment=GTK_A11Y=none
+Environment=NO_AT_BRIDGE=1
 Environment=WLR_LIBINPUT_NO_DEVICES=1
 Environment=XDG_SESSION_TYPE=wayland
 ExecStart=/bin/bash -c '/usr/bin/dbus-run-session /usr/share/lumo/session/lumo-session 2>&1 | tee /tmp/lumo-session.log; exit ${PIPESTATUS[0]}'

@@ -1,4 +1,4 @@
-lumo-store (1.4) unstable; urgency=medium
+lumo-store (1.5) unstable; urgency=medium
 \
   * GSK_RENDERER=cairo (GTK4 GL renderer segfaults on llvmpipe/GPU-less machines);\
     launcher: Gtk.SearchEntry (search-changed is not an Entry signal).

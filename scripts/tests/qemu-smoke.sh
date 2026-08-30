@@ -243,9 +243,10 @@ shot 06-settings.png       60 settings lumo-settings lumo-settings
 plain 07-terminal.png       3 terminal foot           foot
 
 GREETER_BIN=$(command -v sddm-greeter 2>/dev/null || true)
-[ -n "$GREETER_BIN" ] || GREETER_BIN=$(find /usr -name sddm-greeter \( -type f -o -type l \) 2>/dev/null | head -n1)
+[ -n "$GREETER_BIN" ] || GREETER_BIN=$(dpkg -L sddm 2>/dev/null | grep -E '^/usr/.*/sddm-greeter$' | head -n1)
+[ -n "$GREETER_BIN" ] || GREETER_BIN=$(find /usr -name 'sddm-greeter*' -type f 2>/dev/null | head -n1)
 echo "greeter binary: ${GREETER_BIN:-NOT FOUND}" >> "$STATUS"
-echo "greeter dpkg: $(dpkg -L sddm 2>/dev/null | grep -E 'sddm-greeter$' | tr '\n' ' ')" >> "$STATUS"
+echo "greeter candidates: $(dpkg -L sddm 2>/dev/null | grep -E '^/usr' | grep -iE 'greeter|/bin/' | tr '\n' ' ')" >> "$STATUS"
 if [ -n "$GREETER_BIN" ] && [ -x "$GREETER_BIN" ]; then
     plain 08-greeter.png 8 greeter sddm-greeter env QT_QPA_PLATFORM=wayland "$GREETER_BIN" --test-mode --theme /usr/share/sddm/themes/lumo
 else
