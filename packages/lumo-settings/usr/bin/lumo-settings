@@ -1,9 +1,16 @@
-#!/usr/bin/python3
-"""Lumo Settings launcher wrapper."""
-import sys
-
-sys.path.insert(0, "/usr/lib/python3/dist-packages")
-from lumo.settings.app import SettingsApp
-
-if __name__ == "__main__":
-    SettingsApp().run(sys.argv)
+#!/bin/sh
+# Lumo launcher wrapper.
+# gtk4-layer-shell MUST be in the link map before libwayland-client, or layer
+# surface init silently fails ("may have been linked after libwayland").
+# Python/GI has no link-time ordering, so we preload it explicitly.
+LS=/usr/lib/x86_64-linux-gnu/libgtk4-layer-shell.so.0
+if [ ! -f "$LS" ]; then
+    LS=$(ls /usr/lib/*/libgtk4-layer-shell.so.0* 2>/dev/null | head -n1)
+fi
+if [ -n "$LS" ] && [ -f "$LS" ]; then
+    case ":${LD_PRELOAD:-}:" in
+        *":$LS:"*) ;;  # already preloaded
+        *) LD_PRELOAD="$LS${LD_PRELOAD:+:$LD_PRELOAD}"; export LD_PRELOAD ;;
+    esac
+fi
+exec /usr/libexec/lumo/lumo-settings "$@"

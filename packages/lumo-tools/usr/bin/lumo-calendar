@@ -1,77 +1,16 @@
-#!/usr/bin/python3
-"""Lumo Calendar - top-center clock/calendar popup (layer-shell)."""
-import os
-import subprocess
-import sys
-import time
-
-import gi
-
-gi.require_version("Gtk", "4.0")
-gi.require_version("Gtk4LayerShell", "1.0")
-from gi.repository import GLib, Gtk  # noqa: E402
-from gi.repository import Gtk4LayerShell as LayerShell  # noqa: E402
-
-sys.path.insert(0, "/usr/lib/python3/dist-packages")
-from lumo import style  # noqa: E402
-
-
-class Calendar(Gtk.Application):
-    def __init__(self):
-        super().__init__(application_id="org.lumo.Calendar")
-        self.win = None
-        self.time_label = None
-
-    def do_activate(self):
-        self.win = Gtk.ApplicationWindow(application=self, decorated=False)
-        win = self.win
-        style.apply_to_display()
-        try:
-            LayerShell.init_for_window(win)
-            LayerShell.set_layer(win, LayerShell.Layer.TOP)
-            LayerShell.set_anchor(win, LayerShell.Edge.TOP, True)
-            LayerShell.set_anchor(win, LayerShell.Edge.LEFT, True)
-            LayerShell.set_anchor(win, LayerShell.Edge.RIGHT, True)
-            LayerShell.set_margin(win, LayerShell.Edge.TOP, 46)
-            LayerShell.set_keyboard_mode(win, LayerShell.KeyboardMode.ON_DEMAND)
-        except Exception as exc:
-            print(f"[lumo-calendar] layer-shell unavailable ({exc}); running as window")
-
-        panel = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
-        panel.set_size_request(360, -1)
-        panel.set_halign(Gtk.Align.CENTER)
-        panel.add_css_class("lumo-glass")
-
-        self.time_label = Gtk.Label(label="")
-        self.time_label.add_css_class("lumo-title")
-        panel.append(self.time_label)
-
-        date_label = Gtk.Label(label=time.strftime("%A, %B %d %Y"))
-        date_label.add_css_class("lumo-subtitle")
-        panel.append(date_label)
-
-        cal = Gtk.Calendar()
-        panel.append(cal)
-
-        esc = Gtk.EventControllerKey()
-        esc.connect("key-pressed", self._on_key)
-        win.add_controller(esc)
-
-        win.set_child(panel)
-        win.present()
-        GLib.timeout_add_seconds(1, self._tick)
-
-    def _tick(self):
-        if self.time_label:
-            self.time_label.set_text(time.strftime("%I:%M %p").lstrip("0"))
-        return True
-
-    def _on_key(self, _c, keyval, _kc, _m):
-        if keyval == 65307:
-            self.quit()
-            return True
-        return False
-
-
-if __name__ == "__main__":
-    Calendar().run(sys.argv)
+#!/bin/sh
+# Lumo launcher wrapper.
+# gtk4-layer-shell MUST be in the link map before libwayland-client, or layer
+# surface init silently fails ("may have been linked after libwayland").
+# Python/GI has no link-time ordering, so we preload it explicitly.
+LS=/usr/lib/x86_64-linux-gnu/libgtk4-layer-shell.so.0
+if [ ! -f "$LS" ]; then
+    LS=$(ls /usr/lib/*/libgtk4-layer-shell.so.0* 2>/dev/null | head -n1)
+fi
+if [ -n "$LS" ] && [ -f "$LS" ]; then
+    case ":${LD_PRELOAD:-}:" in
+        *":$LS:"*) ;;  # already preloaded
+        *) LD_PRELOAD="$LS${LD_PRELOAD:+:$LD_PRELOAD}"; export LD_PRELOAD ;;
+    esac
+fi
+exec /usr/libexec/lumo/lumo-calendar "$@"

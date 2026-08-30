@@ -1,4 +1,7 @@
-lumo-settings (1.0) unstable; urgency=medium
+lumo-settings (1.1) unstable; urgency=medium
+
+  * LD_PRELOAD gtk4-layer-shell wrappers so layer surfaces actually map (CI-verified);
+    honest session-RAM (PSS) evidence in smoke test; on-demand cups/bluetooth.
 
   * Initial Lumo OS 1.0 "Aurora" release.
 

@@ -133,6 +133,41 @@ log "collecting resource + system reports"
 } > "$WORK/reports.txt" 2>&1 || true
 cat "$WORK/reports.txt"
 
+# ------------------------------------------ session RAM (honest metric)
+# Measured BEFORE any test app is launched: proportional set size (PSS) of
+# every process owned by the session user = the real "desktop session" RAM.
+log "measuring session RAM (PSS of session-user processes, idle, pre-apps)"
+{
+  echo "== session ram (pss) =="
+  "${SSHC[@]}" 'LID=$(id -u lumo 2>/dev/null || echo 1000)
+sync
+sudo -n sh -c "echo 3 > /proc/sys/vm/drop_caches" 2>/dev/null || true
+sleep 2
+SUM=0; N=0
+for p in /proc/[0-9]*/smaps_rollup; do
+  pid=${p%/smaps_rollup}; pid=${pid#/proc/}
+  uid=$(stat -c %u "/proc/$pid" 2>/dev/null) || continue
+  [ "$uid" = "$LID" ] || continue
+  v=$(awk "/^Pss:/{print \$2}" "$p" 2>/dev/null)
+  [ -n "$v" ] && SUM=$((SUM+v)) && N=$((N+1))
+done
+echo "session_pss_kb: $SUM"
+echo "session_procs: $N"
+echo "== top session pss =="
+for p in /proc/[0-9]*/smaps_rollup; do
+  pid=${p%/smaps_rollup}; pid=${pid#/proc/}
+  uid=$(stat -c %u "/proc/$pid" 2>/dev/null) || continue
+  [ "$uid" = "$LID" ] || continue
+  v=$(awk "/^Pss:/{print \$2}" "$p" 2>/dev/null)
+  [ -n "$v" ] && echo "$v $(cat /proc/$pid/comm 2>/dev/null) (pid $pid)"
+done | sort -rn | head -n 14
+echo "== zramctl =="
+zramctl 2>/dev/null || true
+echo "== free -m after drop_caches =="
+free -m'
+} >> "$WORK/reports.txt" 2>&1 || true
+tail -n 25 "$WORK/reports.txt"
+
 # ------------------------------------------------------- screenshots
 log "capturing UI screenshots inside the guest"
 "${SSHC[@]}" 'cat > /tmp/lumo-shots.sh' <<'EOS' > /dev/null
@@ -142,29 +177,63 @@ export WAYLAND_DISPLAY=$(ls "$XDG_RUNTIME_DIR"/wayland-* 2>/dev/null | head -n1 
 export XDG_CURRENT_DESKTOP=lumo:wlroots
 export HOME=/home/lumo
 SHOTS=/tmp/lumo-shots
-rm -rf "$SHOTS"; mkdir -p "$SHOTS"
+STATUS="$SHOTS/status.txt"
+rm -rf "$SHOTS"; mkdir -p "$SHOTS"; : > "$STATUS"
 grim "$SHOTS/00-desktop.png" 2>"$SHOTS/00.err" || true
 
-lumo-launcher >/tmp/app-launcher.log 2>&1 & sleep 3; grim "$SHOTS/01-launcher.png" 2>/dev/null; pkill -f lumo-launcher 2>/dev/null
-lumo-qs >/tmp/app-qs.log 2>&1 & sleep 3; grim "$SHOTS/02-quick-settings.png" 2>/dev/null; pkill -f lumo-qs 2>/dev/null
-lumo-calendar >/tmp/app-calendar.log 2>&1 & sleep 2; grim "$SHOTS/03-calendar.png" 2>/dev/null; pkill -f lumo-calendar 2>/dev/null
-lumo-power >/tmp/app-power.log 2>&1 & sleep 2; grim "$SHOTS/04-power.png" 2>/dev/null; pkill -f lumo-power 2>/dev/null
-lumo-store >/tmp/app-store.log 2>&1 & sleep 7; grim "$SHOTS/05-store.png" 2>/dev/null; pkill -f lumo-store 2>/dev/null
-lumo-settings >/tmp/app-settings.log 2>&1 & sleep 6; grim "$SHOTS/06-settings.png" 2>/dev/null; pkill -f lumo-settings 2>/dev/null
-foot >/dev/null 2>&1 & sleep 3; grim "$SHOTS/07-terminal.png" 2>/dev/null; pkill -x foot 2>/dev/null
+# shot <file> <wait_s> <tag> <kill-pattern> <cmd...>
+# launches the app, verifies it is still alive (mapped), then captures.
+shot() {
+    f="$1"; wait_s="$2"; tag="$3"; killpat="$4"; shift 4
+    "$@" >"/tmp/app-$tag.log" 2>&1 &
+    p=$!
+    sleep "$wait_s"
+    if kill -0 "$p" 2>/dev/null; then st=ALIVE; else st=DEAD; fi
+    echo "$f $st $tag" >> "$STATUS"
+    grim "$SHOTS/$f" 2>/dev/null || true
+    kill "$p" 2>/dev/null || true
+    pkill -f "$killpat" 2>/dev/null || true
+    wait "$p" 2>/dev/null || true
+}
 
-GREETER_BIN=$(command -v sddm-greeter || ls /usr/lib/*/sddm/sddm-greeter 2>/dev/null | head -n1)
-QT_QPA_PLATFORM=wayland "$GREETER_BIN" --test-mode --theme /usr/share/sddm/themes/lumo >/tmp/greeter.log 2>&1 &
-sleep 5; grim "$SHOTS/08-greeter.png" 2>/dev/null; pkill -f sddm-greeter 2>/dev/null
+shot 01-launcher.png        3 launcher lumo-launcher lumo-launcher
+shot 02-quick-settings.png  3 qs       lumo-qs       lumo-qs
+shot 03-calendar.png        3 calendar lumo-calendar lumo-calendar
+shot 04-power.png           3 power    lumo-power    lumo-power
+shot 05-store.png           8 store    lumo-store    lumo-store
+shot 06-settings.png        6 settings lumo-settings lumo-settings
+shot 07-terminal.png        3 terminal foot          foot
 
+GREETER_BIN=$(command -v sddm-greeter 2>/dev/null || true)
+[ -n "$GREETER_BIN" ] || GREETER_BIN=$(ls /usr/libexec/sddm/sddm-greeter /usr/lib/*/sddm/sddm-greeter 2>/dev/null | head -n1)
+if [ -n "$GREETER_BIN" ] && [ -x "$GREETER_BIN" ]; then
+    QT_QPA_PLATFORM=wayland "$GREETER_BIN" --test-mode --theme /usr/share/sddm/themes/lumo >/tmp/greeter.log 2>&1 &
+    p=$!
+    sleep 5
+    if kill -0 "$p" 2>/dev/null; then st=ALIVE; else st=DEAD; fi
+    echo "08-greeter.png $st greeter" >> "$STATUS"
+    grim "$SHOTS/08-greeter.png" 2>/dev/null || true
+    kill "$p" 2>/dev/null || true
+    pkill -f sddm-greeter 2>/dev/null || true
+    wait "$p" 2>/dev/null || true
+else
+    echo "08-greeter.png MISSING greeter" >> "$STATUS"
+fi
+
+echo "--- status ---"
+cat "$STATUS"
 echo "--- app logs ---"
-for f in /tmp/app-*.log; do echo "== $f =="; head -c 1500 "$f"; echo; done
+for f in /tmp/app-*.log; do echo "== $f =="; head -c 1200 "$f"; echo; done
 echo SHOTS_COMPLETE
 EOS
 "${SSHC[@]}" 'chmod +x /tmp/lumo-shots.sh && /tmp/lumo-shots.sh' 2>&1 | tail -n 40
 scp -q "${SSH_OPTS[@]/-p/-P}" 'lumo@127.0.0.1:/tmp/lumo-shots/*.png' "$SHOTS/" 2>/dev/null \
   || scp -q -P "$SSH_PORT" -i "$SSH_KEY" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
        'lumo@127.0.0.1:/tmp/lumo-shots/*.png' "$SHOTS/"
+scp -q "${SSH_OPTS[@]/-p/-P}" 'lumo@127.0.0.1:/tmp/lumo-shots/status.txt' "$WORK/status.txt" 2>/dev/null \
+  || scp -q -P "$SSH_PORT" -i "$SSH_KEY" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+       'lumo@127.0.0.1:/tmp/lumo-shots/status.txt' "$WORK/status.txt" || true
+cat "$WORK/status.txt" 2>/dev/null || true
 "${SSHC[@]}" 'cat /tmp/lumo-shots/00.err /tmp/greeter.log 2>/dev/null | head -n 20' || true
 ls -la "$SHOTS"
 
@@ -211,6 +280,31 @@ def shot_ok(name, min_kb=20):
 reports = read_file(reports_path)
 serial = read_file(serial_log)
 
+# liveness status written by the shot script (qtest/status.txt)
+status = {}
+for ln in read_file(os.path.join(build_dir, "qtest", "status.txt")).splitlines():
+    parts = ln.split()
+    if len(parts) >= 2 and parts[0].endswith(".png"):
+        status[parts[0]] = parts[1]
+
+import hashlib
+
+def md5(path):
+    try:
+        with open(path, "rb") as fh:
+            return hashlib.md5(fh.read()).hexdigest()
+    except Exception:
+        return None
+
+all_hashes = {}
+all_pngs = sorted(os.listdir(shots_dir)) if os.path.isdir(shots_dir) else []
+for fn in all_pngs:
+    if fn.endswith(".png"):
+        h = md5(os.path.join(shots_dir, fn))
+        if h:
+            all_hashes.setdefault(h, []).append(fn)
+dup_hashes = {h for h, fns in all_hashes.items() if len(fns) > 1}
+
 boot_ok = "Lumo OS 1.0" in serial or "graphical.target" in serial or "Reached target" in serial
 lumo_files_ok = "lumo-launcher" in reports and "apps-dark.css" in reports
 
@@ -237,6 +331,12 @@ a = re.search(r"MemAvailable:\s+(\d+) kB", reports)
 if m and a:
     ram_idle = (int(m.group(1)) - int(a.group(1))) // 1024
 
+# honest headline metric: PSS of the session user's processes (idle, pre-apps)
+session_pss = None
+ps = re.search(r"session_pss_kb:\s+(\d+)", reports)
+if ps:
+    session_pss = int(ps.group(1)) // 1024
+
 cpu_idle = None
 if "== idle cpu (5s) ==" in reports:
     cpu_sec = reports.split("== idle cpu (5s) ==")[1].split("==", 2)[0] if False else \
@@ -244,10 +344,23 @@ if "== idle cpu (5s) ==" in reports:
     for line in cpu_sec.strip().splitlines():
         fields = line.split()
         if len(fields) >= 16 and all(re.fullmatch(r"\d+", f) for f in fields):
-            cpu_idle = int(fields[13])  # vmstat 'id' column
+            cpu_idle = int(fields[14])  # vmstat 'id' column (0-based)
 
+desktop_hash = md5(os.path.join(shots_dir, "00-desktop.png"))
 for label, fname in checks:
     ok, detail = shot_ok(fname)
+    st = status.get(fname, "UNKNOWN")
+    if st == "DEAD":
+        ok, detail = False, "app process exited before capture"
+    elif st == "MISSING":
+        ok, detail = False, "binary not found in guest"
+    elif ok and fname != "00-desktop.png":
+        h = md5(os.path.join(shots_dir, fname))
+        if h and h == desktop_hash:
+            ok, detail = False, "identical to desktop frame - window never rendered"
+        elif h and h in dup_hashes:
+            others = [x for x in all_hashes[h] if x != fname]
+            ok, detail = False, f"pixel-identical to {', '.join(others)}"
     results[label] = ("PASS" if ok else "FAIL", detail)
 
 ram_target = 150
@@ -255,7 +368,7 @@ if ram_idle is None:
     ram_verdict, ram_detail = "INFO", "meminfo not captured"
 else:
     ram_verdict = "PASS" if ram_idle <= ram_target else ("NEAR" if ram_idle <= 250 else "MISS")
-    ram_detail = f"{ram_idle} MB used (target < {ram_target} MB)"
+    ram_detail = f"{ram_idle} MB used (kernel + daemons + session, live media)"
 
 lines = []
 lines.append(f"# Lumo OS Validation Report (run {run_no})")
@@ -267,12 +380,19 @@ lines.append(f"| lumo packages present | {results['lumo packages present'][0]} |
 for label, _f in checks:
     res, det = results[label]
     lines.append(f"| {label} | {res} | {det} |")
-lines.append(f"| RAM usage (idle session) | {ram_verdict} | {ram_detail} |")
+if session_pss is None:
+    lines.append("| Session RAM (idle, PSS of session processes) | INFO | smaps_rollup not captured |")
+else:
+    sv = "PASS" if session_pss <= ram_target else "FAIL"
+    lines.append(f"| Session RAM (idle, PSS of session processes) | {sv} | {session_pss} MB (target <= {ram_target} MB) |")
+lines.append(f"| System RAM (used, whole OS) | {ram_verdict} | {ram_detail} |")
 lines.append(f"| CPU idle | {'PASS' if (cpu_idle or 0) >= 80 else 'INFO'} | ~{cpu_idle if cpu_idle is not None else '?'}% idle |")
 lines.append("")
 lines.append("## Warnings")
 lines.append("")
 lines.append("- Greeter screenshot uses `sddm-greeter --test-mode` inside the live session (approximation of the real greeter).")
+lines.append("- Session RAM = sum of proportional set sizes (PSS) of the session user's processes, measured at idle before any test app runs.")
+lines.append("- Duplicate-screenshot detection: any shot pixel-identical to the desktop frame fails the check (window never rendered).")
 lines.append("- Store listing requires AppStream metadata; if empty, use Updates > Check (RefreshCache).")
 lines.append("")
 with open(os.path.join(build_dir, "validation-report.md"), "w") as fh:

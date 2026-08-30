@@ -1,103 +1,16 @@
-#!/usr/bin/python3
-"""Lumo Power - centered session power dialog.
-
-All actions call the real system: systemctl reboot|poweroff|suspend,
-lock via swaylock, logout ends the labwc session. Polkit allows the
-active user to reboot/poweroff by default.
-"""
-import os
-import subprocess
-import sys
-
-import gi
-
-gi.require_version("Gtk", "4.0")
-gi.require_version("Gtk4LayerShell", "1.0")
-from gi.repository import Gtk  # noqa: E402
-from gi.repository import Gtk4LayerShell as LayerShell  # noqa: E402
-
-sys.path.insert(0, "/usr/lib/python3/dist-packages")
-from lumo import style  # noqa: E402
-
-
-class PowerDialog(Gtk.Application):
-    def __init__(self):
-        super().__init__(application_id="org.lumo.Power")
-        self.win = None
-
-    def do_activate(self):
-        self.win = Gtk.ApplicationWindow(application=self, decorated=False)
-        win = self.win
-        style.apply_to_display()
-        try:
-            LayerShell.init_for_window(win)
-            LayerShell.set_layer(win, LayerShell.Layer.OVERLAY)
-            for edge in (LayerShell.Edge.TOP, LayerShell.Edge.BOTTOM,
-                         LayerShell.Edge.LEFT, LayerShell.Edge.RIGHT):
-                LayerShell.set_anchor(win, edge, True)
-            LayerShell.set_keyboard_mode(win, LayerShell.KeyboardMode.EXCLUSIVE)
-        except Exception as exc:
-            print(f"[lumo-power] layer-shell unavailable ({exc}); running as window")
-
-        root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        root.add_css_class("lumo-overlay")
-        click = Gtk.GestureClick()
-        click.connect("released", lambda *_: self.quit())
-        root.add_controller(click)
-
-        overlay = Gtk.Overlay(vexpand=True, hexpand=True)
-        overlay.set_child(root)
-
-        panel = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
-        panel.set_size_request(340, -1)
-        panel.set_halign(Gtk.Align.CENTER)
-        panel.set_valign(Gtk.Align.CENTER)
-        panel.add_css_class("lumo-glass")
-
-        title = Gtk.Label(label="Power")
-        title.add_css_class("lumo-title")
-        panel.append(title)
-
-        for label, cmd, css in (
-            ("Lock", "/usr/libexec/lumo/lumo-lock", "lumo-btn-flat"),
-            ("Log Out", "pkill -TERM -x labwc", "lumo-btn-flat"),
-            ("Suspend", "systemctl suspend", "lumo-btn-flat"),
-            ("Restart", "systemctl reboot", "lumo-btn"),
-            ("Shut Down", "systemctl poweroff", "lumo-btn-danger"),
-        ):
-            b = Gtk.Button(label=label)
-            if css == "lumo-btn":
-                b.add_css_class("lumo-btn")
-            elif css == "lumo-btn-danger":
-                b.add_css_class("lumo-btn-danger")
-            else:
-                b.add_css_class("lumo-btn-flat")
-            b.connect("clicked", self._act, cmd)
-            panel.append(b)
-
-        esc = Gtk.EventControllerKey()
-        esc.connect("key-pressed", self._on_key)
-        win.add_controller(esc)
-
-        overlay.set_overlay(panel)
-        win.set_child(overlay)
-        win.present()
-
-    def _act(self, _b, cmd):
-        import shlex
-        self._busy = True
-        try:
-            subprocess.Popen(shlex.split(cmd), start_new_session=True)
-        except Exception as exc:
-            print(f"[lumo-power] {exc}")
-        self.quit()
-
-    def _on_key(self, _c, keyval, _kc, _m):
-        if keyval == 65307:
-            self.quit()
-            return True
-        return False
-
-
-if __name__ == "__main__":
-    PowerDialog().run(sys.argv)
+#!/bin/sh
+# Lumo launcher wrapper.
+# gtk4-layer-shell MUST be in the link map before libwayland-client, or layer
+# surface init silently fails ("may have been linked after libwayland").
+# Python/GI has no link-time ordering, so we preload it explicitly.
+LS=/usr/lib/x86_64-linux-gnu/libgtk4-layer-shell.so.0
+if [ ! -f "$LS" ]; then
+    LS=$(ls /usr/lib/*/libgtk4-layer-shell.so.0* 2>/dev/null | head -n1)
+fi
+if [ -n "$LS" ] && [ -f "$LS" ]; then
+    case ":${LD_PRELOAD:-}:" in
+        *":$LS:"*) ;;  # already preloaded
+        *) LD_PRELOAD="$LS${LD_PRELOAD:+:$LD_PRELOAD}"; export LD_PRELOAD ;;
+    esac
+fi
+exec /usr/libexec/lumo/lumo-power "$@"

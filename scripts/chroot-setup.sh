@@ -13,11 +13,15 @@ echo "[lumo] verifying Lumo installation"
 dpkg -l | grep '^ii' | grep lumo- || { echo "[lumo] ERROR: lumo packages not fully installed"; dpkg -l | grep lumo- || true; exit 1; }
 for f in /usr/share/lumo/session/lumo-session /usr/share/wayland-sessions/lumo.desktop \
          /etc/xdg/labwc/rc.xml /etc/xdg/waybar/config.jsonc /usr/bin/lumo-launcher \
-         /usr/bin/lumo-store /usr/bin/lumo-settings /usr/share/sddm/themes/lumo/Main.qml \
+         /usr/libexec/lumo/lumo-launcher /usr/bin/lumo-store /usr/libexec/lumo/lumo-store \
+         /usr/bin/lumo-settings /usr/libexec/lumo/lumo-settings \
+         /usr/share/sddm/themes/lumo/Main.qml \
          /etc/calamares/settings.conf /usr/local/sbin/lumo-live-setup; do
   [ -e "$f" ] || { echo "[lumo] ERROR: missing $f"; exit 1; }
 done
-echo "[lumo] all critical files present"
+LS_LIB=$(ls /usr/lib/x86_64-linux-gnu/libgtk4-layer-shell.so.0 /usr/lib/*/libgtk4-layer-shell.so.0* 2>/dev/null | head -n1)
+[ -n "$LS_LIB" ] && [ -e "$LS_LIB" ] || { echo "[lumo] ERROR: libgtk4-layer-shell runtime not found (needed by Lumo Shell apps)"; exit 1; }
+echo "[lumo] all critical files present (layer-shell: $LS_LIB)"
 
 echo "[lumo] generating locales (en + Arabic for RTL)"
 sed -i 's/^# *en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen
@@ -62,9 +66,12 @@ EOF
 
 echo "[lumo] enabling services"
 systemctl enable NetworkManager.service >/dev/null 2>&1 || true
-systemctl enable bluetooth.service >/dev/null 2>&1 || true
+# bluetooth + printing: NOT enabled at boot - both are dbus/socket-activated
+# on first use, keeping idle RAM low on low-memory machines
+systemctl enable bluetooth.target >/dev/null 2>&1 || true
+systemctl enable cups.socket >/dev/null 2>&1 || true
+systemctl disable cups.service >/dev/null 2>&1 || true
 systemctl enable zramswap.service >/dev/null 2>&1 || true
-systemctl enable cups.service >/dev/null 2>&1 || true
 systemctl enable ssh.service >/dev/null 2>&1 || true
 # display manager: make SDDM the greeter
 ln -sf /usr/lib/systemd/system/sddm.service /etc/systemd/system/display-manager.service

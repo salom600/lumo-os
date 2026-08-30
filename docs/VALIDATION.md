@@ -16,9 +16,34 @@
 | 10 | Settings | launch + screenshot | 18-module UI renders |
 | 11 | Terminal | foot + screenshot | terminal window |
 | 12 | Failed units | `systemctl --failed` | empty |
-| 13 | RAM idle | `free -m` inside session | target < 150 MB |
-| 14 | CPU idle | `vmstat 1 5` | > 85% idle |
-| 15 | Boot time | `systemd-analyze` | reported |
+| 13 | **Session RAM (idle)** | sum of PSS of the session user's processes via `smaps_rollup`, measured before any test app runs | target <= 150 MB (**hard gate**) |
+| 14 | System RAM (whole OS) | `MemTotal - MemAvailable` after `drop_caches` (includes kernel + daemons + live media) | reported (INFO/NEAR/MISS) |
+| 15 | CPU idle | `vmstat 1 5`, idle column | > 85% idle |
+| 16 | Boot time | `systemd-analyze` | reported |
+| 17 | **Screenshot integrity** | app alive at capture (status.txt) + md5 uniqueness; any shot pixel-identical to the desktop frame fails | no duplicates / no dead apps |
+
+### Why two RAM metrics?
+
+The product target "basic desktop session < 150 MB" is measured as the sum of
+proportional set sizes (PSS) of every process owned by the session user
+(compositor, bar, notifications, wallpaper, idle/audio daemons, portals).
+Shared pages are counted fractionally, so this is the honest cost of the
+desktop session itself. The whole-OS "used" number additionally contains the
+kernel, slab, and every boot-time system daemon; on live media it also
+counts tmpfs writes. It is reported for transparency but is not the product
+metric.
+
+### False-pass guards (added after run 30/31 review)
+
+- Runs 30/31 technically passed while every GTK4 popup screenshot was
+  byte-identical to the desktop frame: the layer-shell library was loaded
+  after libwayland, so `gtk_layer_init_for_window()` silently failed and no
+  window ever mapped. CI now (a) preloads `libgtk4-layer-shell.so.0` in
+  every Lumo GTK4 entry point (`/usr/bin/lumo-*` are wrappers around
+  `/usr/libexec/lumo/*`), (b) records app liveness at capture time,
+  (c) fails any screenshot that is pixel-identical to another.
+- The greeter shot previously never ran (empty binary path in the shot
+  script); the guest search now covers `/usr/libexec/sddm/sddm-greeter`.
 
 Latest report: see the `lumo-os-test-evidence` artifact of the newest
 Actions run, and the published GitHub release notes.
