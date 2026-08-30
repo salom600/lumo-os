@@ -16,6 +16,16 @@ class Serial:
         self.sock = socket.create_connection((HOST, port), timeout=10)
         self.sock.settimeout(0.5)
         self.buf = b""
+        self.raw_log = []
+
+    def _reply_to_terminal_queries(self, chunk):
+        # agetty/login probe the terminal with ESC[6n (cursor position);
+        # a real terminal answers - emulate one so the guest never blocks.
+        if b"\x1b[6n" in chunk:
+            try:
+                self.sock.sendall(b"\x1b[32766;32766R")
+            except Exception:
+                pass
 
     def read_avail(self, limit=65536):
         try:
@@ -23,7 +33,10 @@ class Serial:
                 chunk = self.sock.recv(65536)
                 if not chunk:
                     break
+                self._reply_to_terminal_queries(chunk)
                 self.buf += chunk
+                if len(self.raw_log) < 4000:
+                    self.raw_log.append(chunk)
                 if len(self.buf) > 8 * 1024 * 1024:
                     self.buf = self.buf[-4 * 1024 * 1024:]
         except socket.timeout:
@@ -48,10 +61,14 @@ class Serial:
         raise TimeoutError(f"serial timeout waiting for {patterns}; tail:\n{tail}")
 
     def send(self, text):
-        self.sock.sendall(text.encode())
+        if isinstance(text, str):
+            text = text.replace("\n", "\r")
+            text = text.encode()
+        self.sock.sendall(text)
 
     def sendline(self, line=""):
-        self.send(line + "\n")
+        # CR is the correct terminal Enter; guest icrnl translates to LF
+        self.send(line + "\r")
 
     def drain(self, seconds=1.0):
         end = time.time() + seconds
@@ -95,21 +112,27 @@ def main():
         time.sleep(2)
         ser.sendline("lumo")
         try:
-            ser.read_until(["Password:"], timeout=20)
-            time.sleep(1)
-            ser.sendline("lumo")
-            echo = ser.read_until(["$", "#", "Login incorrect", "incorrect"], timeout=25)
+            echo = ser.read_until(["Password:", "incorrect", "$ ", "# "], timeout=30)
             if "incorrect" in echo:
-                print("[serial] login attempt rejected, retrying...")
+                print(f"[serial] attempt {attempt}: login incorrect, retrying...")
                 continue
+            if "Password:" in echo:
+                time.sleep(1)
+                ser.sendline("lumo")
+                echo2 = ser.read_until(["$ ", "# ", "incorrect", "Login"], timeout=30)
+                if "incorrect" in echo2:
+                    print(f"[serial] attempt {attempt}: bad password, retrying...")
+                    continue
             logged_in = True
             break
         except TimeoutError:
-            print("[serial] password prompt never appeared, retrying...")
+            tail = b"".join(ser.raw_log[-12:]).decode(errors="replace")[-500:]
+            print(f"[serial] attempt {attempt}: prompt never advanced; raw tail:\n{tail!r}")
             continue
     if not logged_in:
         print("[serial] FAIL: could not log in over serial")
-        print(ser.drain(2)[-2000:])
+        tail = b"".join(ser.raw_log[-40:]).decode(errors="replace")[-2500:]
+        print(tail)
         sys.exit(1)
     print("[serial] logged in as lumo")
     time.sleep(1)
