@@ -4,8 +4,20 @@ set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
 
 echo "[lumo] installing Lumo packages"
-dpkg -i /root/debs/*.deb || apt-get -f install -y
-dpkg -i /root/debs/*.deb || apt-get -f install -y   # second pass resolves ordering
+# --force-overwrite is intentional: Lumo ships tuned versions of files that
+# base packages also own (e.g. /etc/default/zramswap from zram-tools).
+dpkg -i --force-overwrite /root/debs/*.deb || apt-get -f install -y
+dpkg -i --force-overwrite /root/debs/*.deb || apt-get -f install -y
+
+echo "[lumo] verifying Lumo installation"
+dpkg -l | grep '^ii' | grep lumo- || { echo "[lumo] ERROR: lumo packages not fully installed"; dpkg -l | grep lumo- || true; exit 1; }
+for f in /usr/share/lumo/session/lumo-session /usr/share/wayland-sessions/lumo.desktop \
+         /etc/xdg/labwc/rc.xml /etc/xdg/waybar/config.jsonc /usr/bin/lumo-launcher \
+         /usr/bin/lumo-store /usr/bin/lumo-settings /usr/share/sddm/themes/lumo/Main.qml \
+         /etc/calamares/settings.conf /usr/local/sbin/lumo-live-setup; do
+  [ -e "$f" ] || { echo "[lumo] ERROR: missing $f"; exit 1; }
+done
+echo "[lumo] all critical files present"
 
 echo "[lumo] generating locales (en + Arabic for RTL)"
 sed -i 's/^# *en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen
