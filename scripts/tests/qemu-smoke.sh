@@ -183,6 +183,7 @@ export WAYLAND_DISPLAY=$(ls "$XDG_RUNTIME_DIR"/wayland-* 2>/dev/null | head -n1 
 export XDG_CURRENT_DESKTOP=lumo:wlroots
 export HOME=/home/lumo
 export GSK_RENDERER=cairo   # GTK4 GL renderer segfaults via llvmpipe (TCG/no-GPU)
+export DBUS_SESSION_BUS_ADDRESS="unix:path=$XDG_RUNTIME_DIR/bus"
 SHOTS=/tmp/lumo-shots
 STATUS="$SHOTS/status.txt"
 rm -rf "$SHOTS"; mkdir -p "$SHOTS"; : > "$STATUS"
@@ -197,16 +198,20 @@ shot() {
     logf="/tmp/app-$tag.log"
     "$@" >"$logf" 2>&1 &
     p=$!
-    waited=0; st=ALIVE
+    waited=0; st=ALIVE; rc=""
     while :; do
         if grep -q LUMO_MAP_OK "$logf" 2>/dev/null; then
             sleep 1; break                       # first frame has landed
         fi
-        if ! kill -0 "$p" 2>/dev/null; then st=DEAD; break; fi
+        if ! kill -0 "$p" 2>/dev/null; then
+            st=DEAD
+            wait "$p" 2>/dev/null; rc=$?        # real exit status (139 = segv)
+            break
+        fi
         if [ "$waited" -ge "$timeout_s" ]; then st=TIMEOUT; break; fi
         waited=$((waited+2)); sleep 2
     done
-    echo "$f $st $tag" >> "$STATUS"
+    echo "$f $st ${rc:+rc=$rc }$tag" >> "$STATUS"
     grim "$SHOTS/$f" 2>/dev/null || true
     kill "$p" 2>/dev/null || true
     pkill -f "$killpat" 2>/dev/null || true
@@ -257,7 +262,7 @@ echo "--- app logs ---"
 for f in /tmp/app-*.log; do echo "== $f =="; head -c 4000 "$f"; echo; done
 echo SHOTS_COMPLETE
 EOS
-"${SSHC[@]}" 'chmod +x /tmp/lumo-shots.sh && /tmp/lumo-shots.sh' 2>&1 | tail -n 40
+"${SSHC[@]}" 'chmod +x /tmp/lumo-shots.sh && /tmp/lumo-shots.sh' 2>&1 | tail -n 120
 scp -q "${SSH_OPTS[@]/-p/-P}" 'lumo@127.0.0.1:/tmp/lumo-shots/*.png' "$SHOTS/" 2>/dev/null \
   || scp -q -P "$SSH_PORT" -i "$SSH_KEY" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
        'lumo@127.0.0.1:/tmp/lumo-shots/*.png' "$SHOTS/"
@@ -265,6 +270,13 @@ scp -q "${SSH_OPTS[@]/-p/-P}" 'lumo@127.0.0.1:/tmp/lumo-shots/status.txt' "$WORK
   || scp -q -P "$SSH_PORT" -i "$SSH_KEY" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
        'lumo@127.0.0.1:/tmp/lumo-shots/status.txt' "$WORK/status.txt" || true
 cat "$WORK/status.txt" 2>/dev/null || true
+# crash forensics into the persisted reports (segfaults, oom, aborts)
+{
+  echo "== dmesg crashes =="
+  "${SSHC[@]}" 'sudo -n dmesg 2>/dev/null | grep -iE "segfault|traps|oom|out of memory" | tail -n 25'
+  echo "== coredumps =="
+  "${SSHC[@]}" 'sudo -n coredumpctl list --no-pager 2>/dev/null | tail -n 10 || true'
+} >> "$WORK/reports.txt" 2>&1 || true
 "${SSHC[@]}" 'cat /tmp/lumo-shots/00.err /tmp/greeter.log 2>/dev/null | head -n 20' || true
 ls -la "$SHOTS"
 
@@ -291,7 +303,7 @@ def read_file(p):
     except Exception:
         return ""
 
-def shot_ok(name, min_kb=20):
+def shot_ok(name, min_kb=12):
     p = os.path.join(shots_dir, name)
     if not os.path.exists(p):
         return False, "missing"

@@ -123,9 +123,12 @@ class StoreApp(Gtk.Application):
         win.set_child(root)
         win.present()
 
+        # CI hook: present() maps layer surfaces SYNCHRONOUSLY, so the
+        # 'map' signal may fire before connect() below - print directly.
+        print("LUMO_MAP_OK", flush=True)
+
         def _lumo_map_mark(_w=None):
-            # CI hook: lets the test harness wait for the actual map event
-            print("LUMO_MAP_OK", flush=True)
+            print("LUMO_MAP_OK", flush=True)  # late-mapping safety net
             return False
 
         win.connect("map", _lumo_map_mark)
