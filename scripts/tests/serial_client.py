@@ -19,14 +19,14 @@ class SerialIO:
 
     def __init__(self, fifo_path, stream_path):
         self.stream_path = stream_path
-        self._fh = open(fifo_path, "w", buffering=0)  # blocks until qemu reads
+        self._fh = open(fifo_path, "wb", buffering=0)  # blocks until qemu reads
         self.buf = ""
         self._pos = 0
 
     def _reply_to_terminal_queries(self, text):
         if "\x1b[6n" in text:
             try:
-                self._fh.write("\x1b[32766;32766R")
+                self._fh.write(b"\x1b[32766;32766R")
             except Exception:
                 pass
 
@@ -62,7 +62,7 @@ class SerialIO:
 
     def send(self, text):
         try:
-            self._fh.write(text)
+            self._fh.write(text.encode())
         except Exception as exc:
             print(f"[serial] write failed: {exc}")
 

@@ -115,6 +115,7 @@ jobs:
             build/validation-report.md
             build/serial.log
             build/serial-session.log
+            build/qtest/qemu-err.log
             build/test.log
           retention-days: 30
           if-no-files-found: warn
