@@ -302,12 +302,12 @@ cat "$WORK/status.txt" 2>/dev/null || true
 if grep -q "rc=139" "$WORK/status.txt" 2>/dev/null; then
   log "installing gdb in the guest for backtraces (one-time, ~2-4 min under TCG)"
   "${SSHC[@]}" 'sudo -n apt-get update -qq 2>&1 | tail -n 2; sudo -n apt-get install -y -qq gdb 2>&1 | tail -n 2' || true
-  "${SSHC[@]}" 'export XDG_RUNTIME_DIR=/run/user/$(id -u); export WAYLAND_DISPLAY=$(ls "$XDG_RUNTIME_DIR"/wayland-* 2>/dev/null | head -n1 | xargs -r basename); export GSK_RENDERER=cairo GTK_A11Y=none NO_AT_BRIDGE=1 HOME=/home/lumo DBUS_SESSION_BUS_ADDRESS="unix:path=$XDG_RUNTIME_DIR/bus";
-    timeout 60 gdb -batch -ex run -ex "bt 40" -ex "frame 12" -ex "info symbol $pc" -ex "info registers rip rsp" --args /usr/bin/python3 /usr/libexec/lumo/lumo-settings > /tmp/gdb-settings.txt 2>&1; echo "gdb-settings rc=$?"
-    tail -n 45 /tmp/gdb-settings.txt' | tail -n 50
-  "${SSHC[@]}" 'export XDG_RUNTIME_DIR=/run/user/$(id -u); export WAYLAND_DISPLAY=$(ls "$XDG_RUNTIME_DIR"/wayland-* 2>/dev/null | head -n1 | xargs -r basename); export GSK_RENDERER=cairo GTK_A11Y=none NO_AT_BRIDGE=1 HOME=/home/lumo DBUS_SESSION_BUS_ADDRESS="unix:path=$XDG_RUNTIME_DIR/bus";
-    timeout 60 gdb -batch -ex run -ex "bt 40" -ex "frame 12" -ex "info symbol $pc" -ex "info registers rip rsp" --args /usr/bin/python3 /usr/libexec/lumo/lumo-launcher > /tmp/gdb-launcher.txt 2>&1; echo "gdb-launcher rc=$?"
-    tail -n 45 /tmp/gdb-launcher.txt' | tail -n 50
+  "${SSHC[@]}" 'export XDG_RUNTIME_DIR=/run/user/$(id -u); export WAYLAND_DISPLAY=$(ls "$XDG_RUNTIME_DIR"/wayland-* 2>/dev/null | head -n1 | xargs -r basename); export GSK_RENDERER=cairo GTK_A11Y=none NO_AT_BRIDGE=1 HOME=/home/lumo DBUS_SESSION_BUS_ADDRESS="unix:path=$XDG_RUNTIME_DIR/bus" DEBUGINFOD_URLS="https://debuginfod.debian.net";
+    timeout 240 gdb -batch -iex "set debuginfod enabled on" -ex run -ex "bt 40" -ex "echo ===-FULL-BT-TAIL-===\n" -ex "bt -45" -ex "info proc mappings" --args /usr/bin/python3 /usr/libexec/lumo/lumo-settings > /tmp/gdb-settings.txt 2>&1; echo "gdb-settings rc=$?"
+    tail -n 90 /tmp/gdb-settings.txt' | tail -n 95
+  "${SSHC[@]}" 'export XDG_RUNTIME_DIR=/run/user/$(id -u); export WAYLAND_DISPLAY=$(ls "$XDG_RUNTIME_DIR"/wayland-* 2>/dev/null | head -n1 | xargs -r basename); export GSK_RENDERER=cairo GTK_A11Y=none NO_AT_BRIDGE=1 HOME=/home/lumo DBUS_SESSION_BUS_ADDRESS="unix:path=$XDG_RUNTIME_DIR/bus" DEBUGINFOD_URLS="https://debuginfod.debian.net";
+    timeout 240 gdb -batch -iex "set debuginfod enabled on" -ex run -ex "bt 40" -ex "echo ===-FULL-BT-TAIL-===\n" -ex "bt -45" --args /usr/bin/python3 /usr/libexec/lumo/lumo-launcher > /tmp/gdb-launcher.txt 2>&1; echo "gdb-launcher rc=$?"
+    tail -n 90 /tmp/gdb-launcher.txt' | tail -n 95
   echo "== gdb backtraces ==" >> "$WORK/reports.txt"
   "${SSHC[@]}" 'cat /tmp/gdb-settings.txt /tmp/gdb-launcher.txt 2>/dev/null | tail -n 80' >> "$WORK/reports.txt" 2>&1 || true
   # experiment: does the Lumo CSS crash the launcher, or is it deeper?
