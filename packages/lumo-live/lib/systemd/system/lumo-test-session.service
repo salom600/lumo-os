@@ -20,7 +20,7 @@ TTYVTDisallocate=yes
 StandardInput=tty
 StandardOutput=journal
 StandardError=journal
-ExecStart=/usr/bin/dbus-run-session /usr/share/lumo/session/lumo-session
+ExecStart=/bin/bash -c '/usr/bin/dbus-run-session /usr/share/lumo/session/lumo-session 2>&1 | tee /tmp/lumo-session.log; exit ${PIPESTATUS[0]}'
 Restart=on-failure
 
 [Install]

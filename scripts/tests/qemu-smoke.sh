@@ -107,7 +107,13 @@ echo "--- journal lumo/labwc/wayland ---"
 journalctl -b --no-pager 2>/dev/null | grep -iE "labwc|greeter|wayland|autolog" | tail -n 30
 echo "--- test session unit ---"
 systemctl status lumo-test-session --no-pager -l 2>/dev/null | tail -n 25
-journalctl -b -u lumo-test-session --no-pager 2>/dev/null | tail -n 40' 2>/dev/null || true
+journalctl -b -u lumo-test-session --no-pager 2>/dev/null | tail -n 40
+echo "--- session self-log ---"
+cat /tmp/lumo-session.log 2>/dev/null | tail -n 50
+echo "--- labwc sanity ---"
+command -v labwc foot waybar dbus-run-session
+labwc --version 2>&1 | head -n 2
+ls -la /usr/share/lumo/session/ /usr/share/wayland-sessions/ 2>/dev/null' 2>/dev/null || true
   exit 1
 fi
 log "Wayland session detected"
