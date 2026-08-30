@@ -3,20 +3,25 @@
 # Enabled via systemd unit with ConditionPathExists=/run/live/medium so it
 # is a no-op on installed systems.
 set -eu
-
 [ -d /run/live/medium ] || exit 0
+
+# everything this script prints must be visible on the boot console
+exec > /dev/console 2>&1
 echo "[lumo-live] configuring live session"
 
 # 1) live user (passwordless sudo - it is a live session)
 if ! id lumo >/dev/null 2>&1; then
-    useradd -m -c "Lumo Live User" -s /bin/bash -G \
-        sudo,audio,video,input,netdev,users,cdrom,floppy,lp,lpadmin,scanner,bluetooth \
-        lumo || true
+    useradd -m -c "Lumo Live User" -s /bin/bash lumo || echo "[lumo-live] WARN: useradd failed"
 fi
+# add groups individually - a missing optional group must not break the user
+for grp in sudo audio video input netdev users cdrom lp lpadmin bluetooth; do
+    getent group "$grp" >/dev/null 2>&1 && usermod -aG "$grp" lumo 2>/dev/null || true
+done
 cat > /etc/sudoers.d/90-lumo-live <<'EOF'
 lumo ALL=(ALL) NOPASSWD: ALL
 EOF
 chmod 440 /etc/sudoers.d/90-lumo-live
+id lumo && echo "[lumo-live] user lumo ready"
 
 # 2) SDDM autologin into the Lumo session
 mkdir -p /etc/sddm.conf.d
@@ -27,12 +32,20 @@ Session=lumo
 Relogin=true
 EOF
 
-# 3) automated test mode: expose SSH with an ephemeral key passed on the
-#    kernel command line (never stored in the image), plus a fixed local
-#    password so the CI serial console can log in and drive the session.
+# 3) automated test mode: root shell on the serial console + SSH with an
+#    ephemeral key from the kernel command line (never stored in the image).
 if grep -q 'lumo.test=1' /proc/cmdline; then
     echo "[lumo-live] test mode requested"
     echo 'lumo:lumo' | chpasswd
+    mkdir -p /etc/systemd/system/serial-getty@ttyS0.service.d
+    cat > /etc/systemd/system/serial-getty@ttyS0.service.d/autologin.conf <<'EOF'
+[Service]
+ExecStart=
+ExecStart=-/sbin/agetty -a root -L -8 ttyS0 115200 vt100
+Restart=always
+EOF
+    systemctl daemon-reload || true
+    systemctl restart serial-getty@ttyS0.service 2>/dev/null || true
     PUBKEY="$(sed -n 's/.*lumo.pubkey=\([^ ]*\).*/\1/p' /proc/cmdline | base64 -d 2>/dev/null || true)"
     if [ -n "${PUBKEY:-}" ]; then
         install -d -m 700 -o lumo -g lumo /home/lumo/.ssh

@@ -121,16 +121,23 @@ def main():
     fifo = args.fifo or os.environ.get("SERIAL_FIFO", "/tmp/lumo-serial-in")
     stream = args.stream or os.environ.get("SERIAL_STREAM", "/tmp/lumo-serial.log")
 
-    print("[serial] waiting for the login prompt (up to 12 min)...")
+    print("[serial] waiting for the root auto-shell or login prompt (up to 12 min)...")
     ser = SerialIO(fifo, stream)
 
     logged_in = False
+    is_root = False
     for attempt in range(12):
         try:
-            ser.read_until(["login:"], timeout=120)
+            echo = ser.read_until(["# ", "login:"], timeout=120)
         except TimeoutError:
-            print(f"[serial] attempt {attempt}: no login prompt yet")
+            print(f"[serial] attempt {attempt}: no prompt yet")
             continue
+        if echo.rstrip().endswith("#"):
+            # agetty -a root: automatic root shell, no login needed
+            is_root = True
+            logged_in = True
+            print("[serial] root auto-shell detected")
+            break
         time.sleep(2)
         ser.sendline("lumo")
         try:
@@ -157,12 +164,13 @@ def main():
         break
 
     if not logged_in:
-        print("[serial] FAIL: could not log in over serial")
+        print("[serial] FAIL: could not get a shell over serial")
         print(ser.drain(2)[-2500:])
         sys.exit(1)
-    print("[serial] logged in as lumo")
-    time.sleep(1)
-    ser.drain(1)
+    print(f"[serial] logged in ({'root' if is_root else 'lumo'})")
+    if not is_root:
+        time.sleep(1)
+        ser.drain(1)
 
     # ---------------- diagnostics ----------------
     print("[serial] === diagnostics ===")
