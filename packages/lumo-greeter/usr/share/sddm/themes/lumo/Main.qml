@@ -5,7 +5,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 
-import Sddm 1.0
+import Sddm   // versionless: the qt6 greeter registers its own version
 
 Rectangle {
     id: root
