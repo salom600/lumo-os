@@ -3,7 +3,11 @@
 # Enabled via systemd unit with ConditionPathExists=/run/live/medium so it
 # is a no-op on installed systems.
 set -eu
-[ -d /run/live/medium ] || exit 0
+# live medium location differs between live-boot generations
+LIVE_OK=0
+[ -d /run/live/medium ] && LIVE_OK=1
+[ -d /lib/live/mount/medium ] && LIVE_OK=1
+[ "$LIVE_OK" = 1 ] || exit 0
 
 # everything this script prints must be visible on the boot console
 exec > /dev/console 2>&1

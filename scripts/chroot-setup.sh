@@ -56,9 +56,17 @@ systemctl enable cups.service >/dev/null 2>&1 || true
 systemctl enable ssh.service >/dev/null 2>&1 || true
 # display manager: make SDDM the greeter
 ln -sf /usr/lib/systemd/system/sddm.service /etc/systemd/system/display-manager.service
-# live bootstrap service ships disabled-by-default trigger file? It is enabled via ConditionPathExists guard:
-systemctl enable lumo-live-setup.service >/dev/null 2>&1 || true
-systemctl enable lumo-test-report.service >/dev/null 2>&1 || true
+# live bootstrap: do not trust offline `systemctl enable` - create the
+# graphical.target.wants symlink directly, and additionally hook the
+# display manager's start (belt and suspenders; the script is idempotent).
+mkdir -p /etc/systemd/system/graphical.target.wants
+ln -sf /usr/lib/systemd/system/lumo-live-setup.service /etc/systemd/system/graphical.target.wants/lumo-live-setup.service
+ln -sf /usr/lib/systemd/system/lumo-test-report.service /etc/systemd/system/graphical.target.wants/lumo-test-report.service
+mkdir -p /etc/systemd/system/display-manager.service.d
+cat > /etc/systemd/system/display-manager.service.d/lumo-live.conf <<'EOF'
+[Service]
+ExecStartPre=/usr/local/sbin/lumo-live-setup
+EOF
 
 echo "[lumo] initramfs (adds live-boot hooks)"
 update-initramfs -u -k all
