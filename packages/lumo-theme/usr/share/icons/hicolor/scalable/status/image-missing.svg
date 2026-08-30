@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Lumo OS: guaranteed image-missing fallback.
+     GTK 4.18 real_choose_icon() recurses infinitely when an icon is not
+     found anywhere (the found-icon cache never caches misses), so the
+     "image-missing" lookup itself MUST always resolve. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+  <rect x="6" y="6" width="36" height="36" rx="5" fill="#3a3d52" stroke="#646784" stroke-width="2"/>
+  <path d="M18 20a6 6 0 1 1 8 5.6c-1.6.7-2 1.6-2 3.4" fill="none" stroke="#f2f1f0" stroke-width="2.6" stroke-linecap="round"/>
+  <circle cx="24" cy="33.5" r="1.8" fill="#f2f1f0"/>
+</svg>

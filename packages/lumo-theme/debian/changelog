@@ -1,4 +1,9 @@
-lumo-theme (1.0) unstable; urgency=medium
+lumo-theme (1.1) unstable; urgency=medium
+
+  * Ship guaranteed image-missing fallback icons (hicolor + pixmaps):
+    GTK 4.18 real_choose_icon() infinite-recurses (stack overflow) when
+    any icon lookup misses everywhere - the image-missing fallback must
+    always resolve.
 
   * Initial Lumo OS 1.0 "Aurora" release.
 
