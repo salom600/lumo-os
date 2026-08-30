@@ -92,7 +92,19 @@ for i in $(seq 1 60); do
 done
 if [ "$SESSION_UP" != 1 ]; then
   log "FAIL: desktop session never appeared; diagnostics:"
-  "${SSHC[@]}" 'id; systemctl --failed --no-legend --no-pager; systemctl status sddm --no-pager -l 2>/dev/null | tail -n 20; journalctl -b --no-pager 2>/dev/null | grep -iE "labwc|sddm|greeter|wayland|lumo" | tail -n 50; ls -la /run/user/$(id -u)/ 2>/dev/null' 2>/dev/null || true
+  "${SSHC[@]}" 'id
+echo "--- sddm conf ---"
+ls -la /etc/sddm.conf.d/ 2>/dev/null
+cat /etc/sddm.conf.d/*.conf 2>/dev/null
+echo "--- sddm unit ---"
+systemctl is-active sddm; pgrep -a Xorg; pgrep -a labwc
+echo "--- sddm journal ---"
+journalctl -b -u sddm --no-pager 2>/dev/null | tail -n 40
+echo "--- session logs ---"
+ls -la /home/lumo/.local/share/sddm/ 2>/dev/null
+cat /home/lumo/.local/share/sddm/*.log 2>/dev/null | tail -n 40
+echo "--- journal lumo/labwc/wayland ---"
+journalctl -b --no-pager 2>/dev/null | grep -iE "labwc|greeter|wayland|autolog" | tail -n 30' 2>/dev/null || true
   exit 1
 fi
 log "Wayland session detected"
