@@ -158,7 +158,7 @@ QT_QPA_PLATFORM=wayland "$GREETER_BIN" --test-mode --theme /usr/share/sddm/theme
 sleep 5; grim "$SHOTS/08-greeter.png" 2>/dev/null; pkill -f sddm-greeter 2>/dev/null
 
 echo "--- app logs ---"
-for f in /tmp/app-*.log; do echo "== $f =="; head -c 600 "$f"; echo; done
+for f in /tmp/app-*.log; do echo "== $f =="; head -c 1500 "$f"; echo; done
 echo SHOTS_COMPLETE
 EOS
 "${SSHC[@]}" 'chmod +x /tmp/lumo-shots.sh && /tmp/lumo-shots.sh' 2>&1 | tail -n 40
