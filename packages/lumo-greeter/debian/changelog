@@ -1,4 +1,8 @@
-lumo-greeter (1.0) unstable; urgency=medium
+lumo-greeter (1.1) unstable; urgency=medium
+
+  * Drop the Sddm.Components import (unused; Debian trixie ships it as
+    SddmComponents for Qt6 - the broken import made SDDM fall back to its
+    builtin grey theme instead of the Lumo greeter).
 
   * Initial Lumo OS 1.0 "Aurora" release.
 

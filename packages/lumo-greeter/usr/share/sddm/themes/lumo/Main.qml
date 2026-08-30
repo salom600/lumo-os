@@ -6,7 +6,6 @@ import QtQuick.Controls
 import QtQuick.Layouts
 
 import Sddm 1.0
-import Sddm.Components 1.0
 
 Rectangle {
     id: root
