@@ -5,7 +5,6 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 
-import Sddm   // versionless: the qt6 greeter registers its own version
 
 Rectangle {
     id: root
@@ -13,7 +12,7 @@ Rectangle {
     property string userName: userModel.lastUser
     property int sessionIndex: {
         for (var i = 0; i < sessionModel.count; ++i) {
-            if (sessionModel.get(i).key === Sddm.lastSession)
+            if (sessionModel.get(i).key === sddm.lastSession)
                 return i
         }
         return 0
@@ -23,13 +22,11 @@ Rectangle {
     color: "#0b0a14"
     anchors.fill: parent
 
-    SessionModel { id: sessionModel }
-    UserModel { id: userModel }
 
     // wallpaper
     Image {
         anchors.fill: parent
-        source: theme.background
+        source: config.background
         fillMode: Image.PreserveAspectCrop
     }
 
@@ -123,7 +120,7 @@ Rectangle {
                 onActivated: {
                     root.userName = userModel.get(currentIndex).name
                     password.text = ""
-                    Sddm.authenticate(root.userName)
+                    sddm.authenticate(root.userName)
                 }
                 background: Rectangle {
                     color: "#ffffff12"
@@ -195,7 +192,7 @@ Rectangle {
                     if (password.text.length === 0)
                         return
                     busy = true
-                    Sddm.login(root.userName, password.text, root.sessionIndex)
+                    sddm.login(root.userName, password.text, root.sessionIndex)
                 }
             }
 
@@ -244,29 +241,29 @@ Rectangle {
         spacing: 18
 
         Button {
-            visible: Sddm.canSuspend
+            visible: sddm.canSuspend
             width: 44; height: 44
             background: Rectangle { color: "#151722c8"; radius: 14; border.color: "#ffffff1c" }
             contentItem: Text { text: "☾"; color: "#f2f1f0"; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; font.pixelSize: 18 }
-            onClicked: Sddm.suspend()
+            onClicked: sddm.suspend()
             ToolTip.visible: hovered
             ToolTip.text: "Suspend"
         }
         Button {
-            visible: Sddm.canReboot
+            visible: sddm.canReboot
             width: 44; height: 44
             background: Rectangle { color: "#151722c8"; radius: 14; border.color: "#ffffff1c" }
             contentItem: Text { text: "⟳"; color: "#f2f1f0"; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; font.pixelSize: 18 }
-            onClicked: Sddm.reboot()
+            onClicked: sddm.reboot()
             ToolTip.visible: hovered
             ToolTip.text: "Restart"
         }
         Button {
-            visible: Sddm.canPowerOff
+            visible: sddm.canPowerOff
             width: 44; height: 44
             background: Rectangle { color: "#151722c8"; radius: 14; border.color: "#ffffff1c" }
             contentItem: Text { text: "⏻"; color: "#f2f1f0"; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; font.pixelSize: 18 }
-            onClicked: Sddm.powerOff()
+            onClicked: sddm.powerOff()
             ToolTip.visible: hovered
             ToolTip.text: "Shut down"
         }
@@ -277,7 +274,7 @@ Rectangle {
         anchors.left: parent.left
         anchors.bottom: parent.bottom
         anchors.margins: 24
-        text: Sddm.hostName
+        text: sddm.hostName
         color: "#8f8bb8"
         font.family: "Inter"
         font.pixelSize: 13
@@ -290,12 +287,12 @@ Rectangle {
             password.text = ""
             loginButton.busy = false
             password.forceActiveFocus()
-            Sddm.authenticate(root.userName)
+            sddm.authenticate(root.userName)
         }
         function onLoginSucceeded() {
             root.passwordError = ""
         }
     }
 
-    Component.onCompleted: Sddm.authenticate(root.userName)
+    Component.onCompleted: sddm.authenticate(root.userName)
 }

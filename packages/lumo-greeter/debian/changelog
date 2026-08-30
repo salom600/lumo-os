@@ -1,4 +1,8 @@
-lumo-greeter (1.1) unstable; urgency=medium
+lumo-greeter (1.2) unstable; urgency=medium
+
+  * Port the theme to sddm 0.21 (Qt6): the greeter exposes sddm,
+    sessionModel, userModel, config as context properties - no importable
+    Sddm module exists, so the old API failed the whole QML load.
 
   * Drop the Sddm.Components import (unused; Debian trixie ships it as
     SddmComponents for Qt6 - the broken import made SDDM fall back to its
